@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="ALX Enterprise × UN Women Learner Operations & Analytics Dashboard — Operational visibility and support for sponsored female university scholars in Cybersecurity and Data Analytics.">
+  <title>ALX Enterprise × UN Women | Learner Operations & Analytics</title>
+  
+  <!-- Google Fonts: Poppins (300, 400, 500, 600, 700, 900) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,900;1,400;1,600&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Initializing ALX Enterprise Dashboard…</div>
+  </div>
+
+  <div class="app-wrapper">
+
+    <!-- ── Top Header Navigation Bar ── -->
+    <header class="top-header">
+      <div class="header-container">
+        <div class="brand-group">
+          <!-- Transparent ALX Logo -->
+          <div class="logo-box">
+            <img src="assets/alx-logo-white-transparent.svg" alt="ALX Enterprise Logo" class="alx-logo-img alx-logo-dark">
+            <img src="assets/alx-logo-transparent.svg" alt="ALX Enterprise Logo" class="alx-logo-img alx-logo-light">
+          </div>
+          <div class="brand-divider"></div>
+          <!-- UN Women Transparent Vector Logo -->
+          <div class="partner-box">
+            <img src="assets/un-women-logo.svg" alt="UN Women Logo" class="un-women-logo-img">
+          </div>
+        </div>
+
+        <div class="header-controls">
+          <div class="status-pill">
+            <span class="pulse-dot"></span>
+            <span id="lastUpdated">Live Sync</span>
+          </div>
+
+          <div class="mode-switch-container" role="radiogroup" aria-label="Dashboard Mode">
+            <button class="mode-switch-btn active" id="viewModeBtn">
+              <span class="btn-icon">👁️</span> Executive View
+            </button>
+            <button class="mode-switch-btn" id="adminModeBtn">
+              <span class="btn-icon">⚙️</span> Admin Data Ops
+            </button>
+          </div>
+
+          <button class="theme-toggle-btn" id="themeToggle" title="Switch color theme" aria-label="Toggle theme">
+            <span class="theme-icon">🌙</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      
+      <!-- ── Admin File Upload Panel (Admin Mode) ── -->
+      <section class="admin-panel hidden" id="adminBanner">
+        <div class="card admin-upload-card">
+          <div class="admin-card-head">
+            <div>
+              <h2 class="admin-headline">⚙️ Admin Control & Data Update</h2>
+              <p class="admin-subtext">Drag & drop updated weekly Excel tracker exports (.xlsx) to parse and synchronize metrics in real time.</p>
+            </div>
+            <button class="btn btn-outline" id="resetDataBtn">
+              <span>🔄 Reset to Source Data</span>
+            </button>
+          </div>
+          
+          <div class="dropzone-area" id="dropzone">
+            <div class="dropzone-content">
+              <div class="drop-icon-wrapper">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              </div>
+              <div class="dropzone-main-text">Drag and drop updated Excel workbooks (.xlsx) here</div>
+              <div class="dropzone-sub-text">Supports: <code>Cyber Security (CS)_UN_Women_Learner_Data.xlsx</code> or <code>Data Analytics_UN_Women_Learner_Data.xlsx</code></div>
+              <input type="file" id="fileInput" accept=".xlsx, .xls" style="display: none;" multiple>
+              <button class="btn btn-brand" onclick="document.getElementById('fileInput').click()" style="margin-top: 14px;">Select File</button>
+            </div>
+          </div>
+          <div class="upload-feedback" id="uploadStatus"></div>
+        </div>
+      </section>
+
+      <!-- ── Executive Summary KPI Cards ── -->
+      <section class="section-block">
+        <div class="section-heading">
+          <div>
+            <h1 class="headline-primary">Executive Summary</h1>
+            <p class="subheadline">Key performance indicators across sponsored female university student cohorts</p>
+          </div>
+          <div class="quick-stats-badge">
+            <span class="highlight-number" id="totalLearnersBadge">512</span> UN Scholars Enrolled
+          </div>
+        </div>
+
+        <div class="kpi-grid-container" id="kpiGrid">
+          <!-- KPI Cards injected dynamically -->
+        </div>
+      </section>
+
+      <!-- ── Learner Journey Funnel & Health Analytics ── -->
+      <section class="section-block">
+        <div class="grid-split-2">
+          
+          <!-- Funnel Progress Card -->
+          <div class="card">
+            <div class="card-header-flex">
+              <div>
+                <h2 class="card-title">Learner Journey Funnel</h2>
+                <p class="card-subtitle">Stage-by-stage progression from onboarding to graduation</p>
+              </div>
+              <div class="pill-tabs" id="funnelTrackTabs">
+                <button class="pill-tab active" data-track="all">All Tracks</button>
+                <button class="pill-tab" data-track="cs">CS</button>
+                <button class="pill-tab" data-track="da">DA</button>
+              </div>
+            </div>
+
+            <div class="funnel-container" id="funnelDisplay">
+              <!-- Funnel steps injected dynamically -->
+            </div>
+          </div>
+
+          <!-- Health Taxonomy Distribution -->
+          <div class="card">
+            <div class="card-header-flex">
+              <div>
+                <h2 class="card-title">Health Taxonomy Breakdown</h2>
+                <p class="card-subtitle">Classification across 4 unified health buckets</p>
+              </div>
+            </div>
+
+            <div class="chart-layout-flex">
+              <div class="chart-canvas-wrapper">
+                <canvas id="healthChartOverall"></canvas>
+                <div class="chart-center-overlay">
+                  <span class="overlay-value" id="chartCenterTotal">512</span>
+                  <span class="overlay-label">Learners</span>
+                </div>
+              </div>
+              <div class="health-legend-list" id="healthLegendList">
+                <!-- Legend injected dynamically -->
+              </div>
+            </div>
+
+            <!-- Methodology Breakdown Box -->
+            <div class="methodology-box">
+              <div class="methodology-title">
+                <span>📐 Health Classification Methodology</span>
+              </div>
+              <div class="methodology-grid">
+                <div class="method-card">
+                  <div class="method-card-title" style="color: var(--jungle-green);">✅ Healthy / On-Track</div>
+                  <div class="method-card-desc">Active in LMS, submitting assignments on schedule, or Graduated.</div>
+                </div>
+                <div class="method-card">
+                  <div class="method-card-title" style="color: var(--sunflower-yellow);">⚠️ Needs Support</div>
+                  <div class="method-card-desc">Progressing slowly or stalled; submitting but lagging behind pacing targets.</div>
+                </div>
+                <div class="method-card">
+                  <div class="method-card-title" style="color: var(--status-risk);">🔴 At Risk</div>
+                  <div class="method-card-desc">At risk or disengaged; low LMS scores (&lt; 40%) or multiple missed milestones.</div>
+                </div>
+                <div class="method-card">
+                  <div class="method-card-title" style="color: var(--status-inactive);">⬜ Un-onboarded</div>
+                  <div class="method-card-desc">Registered on UN Women list but never activated or accessed LMS/eHub.</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ── Actionable Learner Directory & Risk Matrix ── -->
+      <section class="section-block" id="tableSection">
+        <div class="card card-table-wrapper">
+          <div class="table-header-bar">
+            <div>
+              <h2 class="card-title">Learner Directory & Action Matrix</h2>
+              <p class="card-subtitle">Filter by health classification and export target lists for intervention outreach</p>
+            </div>
+            
+            <button class="btn btn-brand" id="exportCsvBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              Export Outreach List (CSV)
+            </button>
+          </div>
+
+          <!-- Filter Toolbar -->
+          <div class="filter-toolbar">
+            <div class="search-input-group">
+              <span class="search-prefix-icon">🔍</span>
+              <input type="text" id="searchInput" placeholder="Search learner name, email, or phone number…" autocomplete="off">
+              <button class="clear-search-btn hidden" id="clearSearchBtn" title="Clear search">✕</button>
+            </div>
+
+            <div class="filter-select-group">
+              <!-- Quick Health Filter Chips -->
+              <div class="filter-chips" id="healthChips">
+                <button class="chip active" data-health="">All Health</button>
+                <button class="chip chip-healthy" data-health="Healthy / On-Track">Healthy</button>
+                <button class="chip chip-support" data-health="Needs Support">Support</button>
+                <button class="chip chip-risk" data-health="At Risk">At Risk</button>
+                <button class="chip chip-inactive" data-health="Un-onboarded / Inactive">Inactive</button>
+              </div>
+
+              <!-- Track Select Filter -->
+              <select class="custom-select" id="filterTrack" aria-label="Filter by Track">
+                <option value="">All Tracks</option>
+                <option value="Cybersecurity">Cybersecurity (CS)</option>
+                <option value="Data Analytics">Data Analytics (DA)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Learner Data Table -->
+          <div class="table-responsive">
+            <table class="smart-table" id="learnerTable">
+              <thead>
+                <tr>
+                  <th data-sort="full_name" class="th-sortable">Learner <span class="sort-icon">↕</span></th>
+                  <th data-sort="track" class="th-sortable">Track <span class="sort-icon">↕</span></th>
+                  <th data-sort="email" class="th-sortable">Contact Info <span class="sort-icon">↕</span></th>
+                  <th data-sort="lms_overall_score" class="th-sortable">LMS Score <span class="sort-icon">↕</span></th>
+                  <th data-sort="unified_health" class="th-sortable">Health Status <span class="sort-icon">↕</span></th>
+                  <th data-sort="is_enrollment_activated" class="th-sortable">Activation Status <span class="sort-icon">↕</span></th>
+                  <th data-sort="last_submission_date" class="th-sortable">Last Active <span class="sort-icon">↕</span></th>
+                </tr>
+              </thead>
+              <tbody id="learnerTableBody">
+                <!-- Table rows injected dynamically -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Table Pagination Footer -->
+          <div class="table-pagination-footer">
+            <div class="results-info" id="resultCount">Showing 0 learners</div>
+            <div class="pagination-controls" id="pagination">
+              <!-- Pagination buttons -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ── App Footer ── -->
+    <footer class="app-footer">
+      <div class="footer-container">
+        <div class="footer-brand">
+          <span class="footer-logo">ALX Enterprise × UN Women</span>
+          <span class="footer-copy">Learner Operations & Operational Intelligence</span>
+        </div>
+        <div class="footer-meta">
+          <span>Data Pipeline Status: <strong id="footerTimestamp">Loaded</strong></span>
+        </div>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- CDNs: SheetJS + Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
