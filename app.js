@@ -1,9 +1,8 @@
 /**
  * ALX Enterprise × UN Women: Learner Operations & Analytics Dashboard Logic
  * ==========================================================================
- * Stealth Dark Theme design system, SVG vector iconography, active KPI filter cards,
- * interactive health chips, Chart.js doughnut overlay, SheetJS Excel parser,
- * and client-side state management.
+ * Dual-Theme Smart UI Engine (Dark Obsidian & Light Slate) with Poppins typography,
+ * vibrant KPI cards, theme-aware Chart.js, SheetJS parser, & Motion One animations.
  */
 
 (function () {
@@ -95,7 +94,7 @@
       if (!targets || targets.length === 0) return;
       animate(
         targets,
-        { opacity: [0, 1], scale: [0.9, 1], y: [10, 0] },
+        { opacity: [0, 1], scale: [0.92, 1], y: [10, 0] },
         { duration: opts.duration || 0.4, delay: stagger(opts.stagger || 0.06), easing: [0.22, 1, 0.36, 1] }
       );
     }
@@ -202,6 +201,7 @@
         label: 'UN Sponsored Seats',
         value: k.total_un_seats,
         detail: `${k.total_registered} female scholars registered`,
+        color: 'blue',
         icon: ICONS.target,
         filterHealth: '',
       },
@@ -210,6 +210,7 @@
         label: 'LMS Onboarded',
         value: k.total_lms_login,
         detail: `${onboardingRate}% onboarding rate`,
+        color: 'blue',
         icon: ICONS.key,
         filterHealth: '',
       },
@@ -218,6 +219,7 @@
         label: 'Enrollment Activated',
         value: k.total_activated,
         detail: `${activationRate}% activation rate`,
+        color: 'orange',
         icon: ICONS.zap,
         filterHealth: '',
       },
@@ -226,6 +228,7 @@
         label: 'Healthy / On-Track',
         value: k.total_healthy,
         detail: `${((k.total_healthy / k.total_registered) * 100).toFixed(1)}% of cohort`,
+        color: 'green',
         icon: ICONS.check,
         filterHealth: 'Healthy / On-Track',
       },
@@ -234,6 +237,7 @@
         label: 'At Risk',
         value: k.total_at_risk,
         detail: 'Immediate outreach list',
+        color: 'red',
         icon: ICONS.alert,
         filterHealth: 'At Risk',
       },
@@ -242,6 +246,7 @@
         label: 'Un-onboarded / Inactive',
         value: k.total_unonboarded,
         detail: 'Zero platform activity',
+        color: 'gray',
         icon: ICONS.minus,
         filterHealth: 'Un-onboarded / Inactive',
       },
@@ -251,7 +256,7 @@
     if (!grid) return;
 
     grid.innerHTML = kpis.map(kpi => `
-      <div class="kpi-smart-card" id="${kpi.id}" data-health="${kpi.filterHealth}">
+      <div class="kpi-smart-card kpi-${kpi.color}" id="${kpi.id}" data-health="${kpi.filterHealth}">
         <div class="kpi-header-row">
           <span class="kpi-title-label">${kpi.label}</span>
           <div class="kpi-icon-bubble">${kpi.icon}</div>
@@ -390,7 +395,7 @@
     });
   }
 
-  // Health Chart (Stealth Monochromatic Doughnut)
+  // Health Chart (Theme-Aware Doughnut)
   function renderHealthChart() {
     const canvas = document.getElementById('healthChartOverall');
     const legendList = document.getElementById('healthLegendList');
@@ -410,8 +415,8 @@
     const labels = Object.keys(healthObj);
     const dataValues = Object.values(healthObj);
     
-    // Stealth Monochromatic Palette (No neon/vibrant hues)
-    const colors = ['#FAFAFA', '#A1A1AA', '#52525B', '#27272A'];
+    // Vibrant & Readable Health Palette
+    const colors = ['#10B981', '#F59E0B', '#EF4444', '#64748B'];
 
     // Render Legend
     if (legendList) {
@@ -456,12 +461,12 @@
           plugins: {
             legend: { display: false },
             tooltip: {
-              backgroundColor: isDark ? '#18181B' : '#FFFFFF',
-              titleColor: isDark ? '#FAFAFA' : '#09090B',
-              bodyColor: isDark ? '#A1A1AA' : '#52525B',
-              borderColor: isDark ? '#27272A' : '#E4E4E7',
+              backgroundColor: isDark ? '#121721' : '#FFFFFF',
+              titleColor: isDark ? '#F8FAFC' : '#0F172A',
+              bodyColor: isDark ? '#94A3B8' : '#475569',
+              borderColor: isDark ? '#1E293B' : '#E2E8F0',
               borderWidth: 1,
-              cornerRadius: 6,
+              cornerRadius: 8,
               padding: 10,
               titleFont: { family: 'Poppins', size: 12, weight: '600' },
               bodyFont: { family: 'Poppins', size: 11 },
@@ -630,7 +635,7 @@
       const trackClass = l.track === 'Cybersecurity' ? 'cs' : 'da';
       const scoreHtml = renderScore(l.lms_overall_score);
       const activatedHtml = l.is_enrollment_activated
-        ? '<span style="color: var(--text-main); font-weight: 500;">Activated</span>'
+        ? '<span style="color: var(--status-healthy); font-weight: 600;">Activated</span>'
         : '<span style="color: var(--text-muted);">Pending</span>';
 
       return `
@@ -639,7 +644,7 @@
           <td><span class="track-tag ${trackClass}">${l.track === 'Cybersecurity' ? 'CS' : 'DA'}</span></td>
           <td>
             <div style="display: flex; flex-direction: column;">
-              <a href="mailto:${escapeHtml(l.email)}" style="color: var(--text-main); text-decoration: none; font-weight: 500;" title="Email learner">${escapeHtml(l.email)}</a>
+              <a href="mailto:${escapeHtml(l.email)}" style="color: var(--text-accent); text-decoration: none; font-weight: 500;" title="Email learner">${escapeHtml(l.email)}</a>
               <span style="font-size: 11px; color: var(--text-muted);">${escapeHtml(l.phone || '-')}</span>
             </div>
           </td>
@@ -714,11 +719,12 @@
 
   function renderScore(score) {
     if (score == null) return '<span style="color: var(--text-muted);">-</span>';
+    const color = score >= 70 ? 'var(--color-healthy)' : score >= 40 ? 'var(--color-support)' : 'var(--color-risk)';
     return `
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="font-weight: 600; width: 36px;">${score}%</span>
         <div style="flex: 1; height: 4px; background: var(--bg-input); border-radius: 2px; overflow: hidden; width: 60px;">
-          <div style="height: 100%; width: ${Math.min(score, 100)}%; background: var(--text-main); border-radius: 2px;"></div>
+          <div style="height: 100%; width: ${Math.min(score, 100)}%; background: ${color}; border-radius: 2px;"></div>
         </div>
       </div>
     `;
