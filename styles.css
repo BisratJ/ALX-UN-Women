@@ -1182,3 +1182,240 @@ body::before {
     align-items: stretch;
   }
 }
+
+/* ==========================================================================
+   UI/UX PRO MAX SKILL — Applied Quality Patterns
+   ========================================================================== */
+
+/* ── Focus Visible (Accessibility) ──────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid #2563EB;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #2563EB;
+  outline-offset: 2px;
+}
+
+/* ── Prefers Reduced Motion ──────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .funnel-track-bar-fill {
+    transition: none !important;
+  }
+
+  .pulse-dot {
+    animation: none !important;
+  }
+
+  .loading-spinner {
+    animation: none !important;
+  }
+}
+
+/* ── Sticky Table Header ─────────────────────────────────────────────────── */
+.smart-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg-input);
+  box-shadow: 0 1px 0 var(--border-card);
+}
+
+/* ── Zebra Striping on Table Rows ────────────────────────────────────────── */
+.smart-table tbody tr:nth-child(even) td {
+  background-color: rgba(255, 255, 255, 0.012);
+}
+
+/* ── Minimum Row Height (Tap Target) ─────────────────────────────────────── */
+.smart-table td,
+.smart-table th {
+  height: 44px;
+}
+
+/* ── Minimum Badge Width (Prevent Layout Shift) ─────────────────────────── */
+.status-pill-badge {
+  min-width: 80px;
+  justify-content: center;
+}
+
+/* ── Glassmorphism Upgrade for Cards ─────────────────────────────────────── */
+.card {
+  background: linear-gradient(135deg, #12171F 0%, #161D29 100%);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  box-shadow:
+    0 10px 32px -8px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.card:hover {
+  box-shadow:
+    0 16px 40px -8px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* ── KPI Card Glass Enhancement ─────────────────────────────────────────── */
+.kpi-smart-card {
+  background: linear-gradient(135deg, #111520 0%, #161D2A 100%);
+  box-shadow:
+    0 8px 24px -6px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  will-change: transform, opacity;
+}
+
+.kpi-smart-card:hover {
+  box-shadow:
+    0 14px 32px -6px rgba(0, 0, 0, 0.6),
+    0 0 0 1px var(--kpi-accent, #2563EB),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  background: linear-gradient(135deg, #141A26 0%, #1A2234 100%);
+}
+
+/* ── KPI Value Font Feature Settings ─────────────────────────────────────── */
+.kpi-value-num {
+  font-feature-settings: 'tnum' 1, 'zero' 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* ── Button Active Press State ───────────────────────────────────────────── */
+.btn:active {
+  transform: translateY(0) scale(0.97);
+  transition-duration: 0.08s;
+}
+
+.btn-brand:active {
+  background: #1E40AF;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
+}
+
+.mode-switch-btn:active,
+.theme-toggle-btn:active,
+.chip:active,
+.pill-tab:active {
+  transform: scale(0.96);
+  transition-duration: 0.08s;
+}
+
+/* ── will-change Hints for Animated Elements ─────────────────────────────── */
+.kpi-smart-card,
+.section-block,
+.funnel-row-item,
+.funnel-track-bar-fill {
+  will-change: transform, opacity;
+}
+
+.smart-table tbody tr {
+  will-change: opacity, transform;
+}
+
+/* ── Funnel Bar Transition Fallback ──────────────────────────────────────── */
+.funnel-track-bar-fill {
+  transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── Table Overflow Scrolling on Mobile ──────────────────────────────────── */
+.table-responsive {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Section Block Fade-up Init State ────────────────────────────────────── */
+.section-block {
+  opacity: 1; /* overridden by Motion to 0 on mount, then animated in */
+}
+
+/* ── Enhanced Mobile Layout ─────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .main-content {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .kpi-grid-container {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .kpi-value-num {
+    font-size: 22px;
+  }
+
+  .header-controls {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .status-pill {
+    display: none; /* hide sync badge on very small screens */
+  }
+
+  .chart-layout-flex {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .health-legend-list {
+    width: 100%;
+  }
+
+  .table-header-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ── Ultra-wide Layout ──────────────────────────────────────────────────── */
+@media (min-width: 1536px) {
+  .main-content {
+    padding: 32px;
+    gap: 28px;
+  }
+
+  .kpi-grid-container {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+/* ── Smooth Scrollbar Styling ────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-app);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-slate, #252E3E);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* ── Text Selection Color ────────────────────────────────────────────────── */
+::selection {
+  background: rgba(37, 99, 235, 0.25);
+  color: var(--text-main);
+}
+
