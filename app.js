@@ -1,7 +1,7 @@
 /**
- * ALX Enterprise × UN Women — Learner Operations & Analytics Dashboard Logic
+ * ALX Enterprise × UN Women: Learner Operations & Analytics Dashboard Logic
  * ==========================================================================
- * Smart & Clean UI engine with Poppins design system, active KPI filter cards,
+ * Stealth Dark Theme design system, SVG vector iconography, active KPI filter cards,
  * interactive health chips, Chart.js doughnut overlay, SheetJS Excel parser,
  * and client-side state management.
  */
@@ -9,7 +9,7 @@
 (function () {
   'use strict';
 
-  // ─── State ──────────────────────────────────────────────────────
+  // State
   let DEFAULT_DATA = null;
   let DATA = null;
   let filteredLearners = [];
@@ -49,14 +49,23 @@
     'Not activated or no sign of life': 'Un-onboarded / Inactive',
   };
 
-  // ─── Motion One Animation Helpers ───────────────────────────────
-  // Uses Motion One (vanilla Framer Motion) when available via CDN.
-  // Gracefully falls back to CSS if Motion is not loaded.
+  // SVG Icons Registry (Strictly vector SVGs, no emojis)
+  const ICONS = {
+    target: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+    key: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>`,
+    zap: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+    check: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+    alert: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+    minus: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`,
+    moon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`,
+    sun: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M18.36 5.64l1.41-1.41"/></svg>`,
+  };
+
+  // Motion One Animation Helpers
   const Motion = (() => {
     const lib = window.Motion || null;
     const animate = lib ? lib.animate : null;
     const stagger = lib ? lib.stagger : (delay) => delay || 0;
-    const inView = lib ? lib.inView : null;
 
     function fadeUp(els, opts = {}) {
       if (!animate || !els) return;
@@ -80,45 +89,22 @@
       );
     }
 
-    function scaleIn(els, opts = {}) {
-      if (!animate || !els) return;
-      const targets = typeof els === 'string' ? document.querySelectorAll(els) : els;
-      if (!targets || targets.length === 0) return;
-      animate(
-        targets,
-        { opacity: [0, 1], scale: [0.92, 1] },
-        { duration: opts.duration || 0.35, delay: stagger(opts.stagger || 0.05), easing: [0.34, 1.56, 0.64, 1] }
-      );
-    }
-
-    function numberRoll(el, target, duration = 1.2) {
-      if (!animate || !el) return;
-      const obj = { val: 0 };
-      animate(
-        (progress) => {
-          el.textContent = Math.round(progress * target);
-        },
-        { duration, easing: [0.16, 1, 0.3, 1] }
-      );
-    }
-
     function springIn(els, opts = {}) {
       if (!animate || !els) return;
       const targets = typeof els === 'string' ? document.querySelectorAll(els) : els;
       if (!targets || targets.length === 0) return;
       animate(
         targets,
-        { opacity: [0, 1], scale: [0.85, 1], y: [10, 0] },
-        { duration: opts.duration || 0.5, delay: stagger(opts.stagger || 0.08), easing: [0.34, 1.56, 0.64, 1] }
+        { opacity: [0, 1], scale: [0.9, 1], y: [10, 0] },
+        { duration: opts.duration || 0.4, delay: stagger(opts.stagger || 0.06), easing: [0.22, 1, 0.36, 1] }
       );
     }
 
-    return { fadeUp, slideDown, scaleIn, numberRoll, springIn, available: !!animate };
+    return { fadeUp, slideDown, springIn, available: !!animate };
   })();
 
-  // ─── Initialization ─────────────────────────────────────────────
+  // Initialization
   document.addEventListener('DOMContentLoaded', () => {
-    // Animate header on page load
     Motion.slideDown('.top-header');
     loadData();
     setupThemeToggle();
@@ -151,8 +137,10 @@
       if (overlay) {
         overlay.innerHTML = `
           <div class="empty-state">
-            <div class="empty-icon">⚠️</div>
-            <div class="empty-title">Failed to load dashboard data</div>
+            <div class="empty-icon" style="color: var(--text-sub);">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div class="empty-title" style="margin-top: 10px;">Failed to load dashboard data</div>
             <div class="empty-desc">Ensure data.json exists in workspace directory. Run: python3 clean_data.py</div>
           </div>
         `;
@@ -174,13 +162,12 @@
     renderFunnels();
     renderHealthChart();
     setupTable();
-    // Animate main content sections with stagger on initial load
     setTimeout(() => {
       Motion.fadeUp('.section-block', { stagger: 0.1, duration: 0.5 });
     }, 100);
   }
 
-  // ─── Timestamp & Badges ─────────────────────────────────────────
+  // Timestamp & Badges
   function renderTimestamp() {
     const ts = DATA.generated_at;
     const date = new Date(ts);
@@ -199,7 +186,7 @@
     if (totalBadge && DATA.kpis) totalBadge.textContent = DATA.kpis.total_registered || 512;
   }
 
-  // ─── KPI Cards Grid ─────────────────────────────────────────────
+  // KPI Cards Grid
   function renderKPIs() {
     const k = DATA.kpis;
     const onboardingRate = k.total_registered > 0
@@ -215,8 +202,7 @@
         label: 'UN Sponsored Seats',
         value: k.total_un_seats,
         detail: `${k.total_registered} female scholars registered`,
-        color: 'blue',
-        icon: '🎯',
+        icon: ICONS.target,
         filterHealth: '',
       },
       {
@@ -224,8 +210,7 @@
         label: 'LMS Onboarded',
         value: k.total_lms_login,
         detail: `${onboardingRate}% onboarding rate`,
-        color: 'blue',
-        icon: '🔑',
+        icon: ICONS.key,
         filterHealth: '',
       },
       {
@@ -233,8 +218,7 @@
         label: 'Enrollment Activated',
         value: k.total_activated,
         detail: `${activationRate}% activation rate`,
-        color: 'orange',
-        icon: '⚡',
+        icon: ICONS.zap,
         filterHealth: '',
       },
       {
@@ -242,8 +226,7 @@
         label: 'Healthy / On-Track',
         value: k.total_healthy,
         detail: `${((k.total_healthy / k.total_registered) * 100).toFixed(1)}% of cohort`,
-        color: 'green',
-        icon: '✅',
+        icon: ICONS.check,
         filterHealth: 'Healthy / On-Track',
       },
       {
@@ -251,8 +234,7 @@
         label: 'At Risk',
         value: k.total_at_risk,
         detail: 'Immediate outreach list',
-        color: 'red',
-        icon: '🔴',
+        icon: ICONS.alert,
         filterHealth: 'At Risk',
       },
       {
@@ -260,8 +242,7 @@
         label: 'Un-onboarded / Inactive',
         value: k.total_unonboarded,
         detail: 'Zero platform activity',
-        color: 'gray',
-        icon: '⬜',
+        icon: ICONS.minus,
         filterHealth: 'Un-onboarded / Inactive',
       },
     ];
@@ -270,7 +251,7 @@
     if (!grid) return;
 
     grid.innerHTML = kpis.map(kpi => `
-      <div class="kpi-smart-card kpi-${kpi.color}" id="${kpi.id}" data-health="${kpi.filterHealth}">
+      <div class="kpi-smart-card" id="${kpi.id}" data-health="${kpi.filterHealth}">
         <div class="kpi-header-row">
           <span class="kpi-title-label">${kpi.label}</span>
           <div class="kpi-icon-bubble">${kpi.icon}</div>
@@ -280,7 +261,6 @@
       </div>
     `).join('');
 
-    // Add click listeners on KPI cards to quickly filter table
     kpis.forEach(kpi => {
       const el = document.getElementById(kpi.id);
       if (el) {
@@ -294,9 +274,8 @@
       }
     });
 
-    // Animate KPI cards in with spring stagger
     requestAnimationFrame(() => {
-      Motion.springIn('.kpi-smart-card', { stagger: 0.07, duration: 0.5 });
+      Motion.springIn('.kpi-smart-card', { stagger: 0.05, duration: 0.4 });
     });
     animateCounters();
   }
@@ -319,7 +298,7 @@
     });
   }
 
-  // ─── Funnel Analytics ───────────────────────────────────────────
+  // Funnel Analytics
   function renderFunnels() {
     const funnelDisplay = document.getElementById('funnelDisplay');
     const trackTabs = document.getElementById('funnelTrackTabs');
@@ -350,7 +329,6 @@
     } else if (activeFunnelTrack === 'da') {
       funnelData = DATA.funnels.da || funnelData;
     } else {
-      // Sum CS + DA
       const cs = DATA.funnels.cs || {};
       const da = DATA.funnels.da || {};
       funnelData = {
@@ -388,9 +366,8 @@
       `;
     }).join('');
 
-    // Animate funnel rows in, then reveal bars
     requestAnimationFrame(() => {
-      Motion.fadeUp(funnelDisplay.querySelectorAll('.funnel-row-item'), { stagger: 0.08, duration: 0.4 });
+      Motion.fadeUp(funnelDisplay.querySelectorAll('.funnel-row-item'), { stagger: 0.06, duration: 0.35 });
       setTimeout(() => {
         if (Motion.available) {
           funnelDisplay.querySelectorAll('.funnel-track-bar-fill').forEach((bar, i) => {
@@ -398,22 +375,22 @@
             bar.style.width = '0%';
             setTimeout(() => {
               window.Motion.animate(bar, { width: targetWidth }, {
-                duration: 0.7,
-                delay: i * 0.06,
+                duration: 0.6,
+                delay: i * 0.05,
                 easing: [0.22, 1, 0.36, 1],
               });
-            }, 60);
+            }, 50);
           });
         } else {
           funnelDisplay.querySelectorAll('.funnel-track-bar-fill').forEach(bar => {
             bar.style.width = bar.dataset.width;
           });
         }
-      }, 120);
+      }, 100);
     });
   }
 
-  // ─── Health Chart with Center Overlay ───────────────────────────
+  // Health Chart (Stealth Monochromatic Doughnut)
   function renderHealthChart() {
     const canvas = document.getElementById('healthChartOverall');
     const legendList = document.getElementById('healthLegendList');
@@ -432,7 +409,9 @@
 
     const labels = Object.keys(healthObj);
     const dataValues = Object.values(healthObj);
-    const colors = ['#02B75E', '#EAB308', '#EF4444', '#64748B'];
+    
+    // Stealth Monochromatic Palette (No neon/vibrant hues)
+    const colors = ['#FAFAFA', '#A1A1AA', '#52525B', '#27272A'];
 
     // Render Legend
     if (legendList) {
@@ -465,10 +444,10 @@
             data: dataValues,
             backgroundColor: colors,
             borderWidth: 0,
-            hoverOffset: 8,
-            cutout: '72%',
-            spacing: 3,
-            borderRadius: 4,
+            hoverOffset: 6,
+            cutout: '74%',
+            spacing: 2,
+            borderRadius: 3,
           }],
         },
         options: {
@@ -477,12 +456,12 @@
           plugins: {
             legend: { display: false },
             tooltip: {
-              backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-              titleColor: isDark ? '#F8FAFC' : '#0F172A',
-              bodyColor: isDark ? '#94A3B8' : '#475569',
-              borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+              backgroundColor: isDark ? '#18181B' : '#FFFFFF',
+              titleColor: isDark ? '#FAFAFA' : '#09090B',
+              bodyColor: isDark ? '#A1A1AA' : '#52525B',
+              borderColor: isDark ? '#27272A' : '#E4E4E7',
               borderWidth: 1,
-              cornerRadius: 8,
+              cornerRadius: 6,
               padding: 10,
               titleFont: { family: 'Poppins', size: 12, weight: '600' },
               bodyFont: { family: 'Poppins', size: 11 },
@@ -491,13 +470,13 @@
               },
             },
           },
-          animation: { animateRotate: true, duration: 800 },
+          animation: { animateRotate: true, duration: 600 },
         },
       });
     }
   }
 
-  // ─── Table Directory & Filters ──────────────────────────────────
+  // Table Directory & Filters
   function setupTable() {
     const searchInput = document.getElementById('searchInput');
     const clearSearchBtn = document.getElementById('clearSearchBtn');
@@ -634,8 +613,10 @@
         <tr>
           <td colspan="7">
             <div class="empty-state" style="padding: 40px; text-align: center; color: var(--text-muted);">
-              <div style="font-size: 36px; margin-bottom: 8px;">🔍</div>
-              <div style="font-weight: 600; color: var(--text-main);">No matching learners found</div>
+              <div style="margin-bottom: 8px; color: var(--text-sub);">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </div>
+              <div style="font-weight: 500; color: var(--text-main);">No matching learners found</div>
               <div style="font-size: 12px; margin-top: 4px;">Try searching for a different keyword or reset filters</div>
             </div>
           </td>
@@ -649,8 +630,8 @@
       const trackClass = l.track === 'Cybersecurity' ? 'cs' : 'da';
       const scoreHtml = renderScore(l.lms_overall_score);
       const activatedHtml = l.is_enrollment_activated
-        ? '<span style="color: var(--status-healthy); font-weight: 600;">✓ Activated</span>'
-        : '<span style="color: var(--text-muted);">✗ Pending</span>';
+        ? '<span style="color: var(--text-main); font-weight: 500;">Activated</span>'
+        : '<span style="color: var(--text-muted);">Pending</span>';
 
       return `
         <tr>
@@ -658,8 +639,8 @@
           <td><span class="track-tag ${trackClass}">${l.track === 'Cybersecurity' ? 'CS' : 'DA'}</span></td>
           <td>
             <div style="display: flex; flex-direction: column;">
-              <a href="mailto:${escapeHtml(l.email)}" style="color: var(--text-accent); text-decoration: none; font-weight: 500;" title="Email learner">${escapeHtml(l.email)}</a>
-              <span style="font-size: 11px; color: var(--text-muted);">${escapeHtml(l.phone || '—')}</span>
+              <a href="mailto:${escapeHtml(l.email)}" style="color: var(--text-main); text-decoration: none; font-weight: 500;" title="Email learner">${escapeHtml(l.email)}</a>
+              <span style="font-size: 11px; color: var(--text-muted);">${escapeHtml(l.phone || '-')}</span>
             </div>
           </td>
           <td>${scoreHtml}</td>
@@ -669,19 +650,18 @@
             </span>
           </td>
           <td>${activatedHtml}</td>
-          <td style="color: var(--text-sub); font-size: 11px;">${l.last_submission_date || '—'}</td>
+          <td style="color: var(--text-sub); font-size: 11px;">${l.last_submission_date || '-'}</td>
         </tr>
       `;
     }).join('');
 
     const rc = document.getElementById('resultCount');
     if (rc) {
-      rc.textContent = `Showing ${start + 1}–${Math.min(start + PAGE_SIZE, filteredLearners.length)} of ${filteredLearners.length} scholars`;
+      rc.textContent = `Showing ${start + 1} to ${Math.min(start + PAGE_SIZE, filteredLearners.length)} of ${filteredLearners.length} scholars`;
     }
 
-    // Animate rows in with fast stagger
     requestAnimationFrame(() => {
-      Motion.fadeUp(tbody.querySelectorAll('tr'), { stagger: 0.03, duration: 0.3 });
+      Motion.fadeUp(tbody.querySelectorAll('tr'), { stagger: 0.025, duration: 0.25 });
     });
   }
 
@@ -733,20 +713,18 @@
   }
 
   function renderScore(score) {
-    if (score == null) return '<span style="color: var(--text-muted);">—</span>';
-    const level = score >= 70 ? 'high' : score >= 40 ? 'medium' : 'low';
-    const color = score >= 70 ? 'var(--status-healthy)' : score >= 40 ? 'var(--status-support)' : 'var(--status-risk)';
+    if (score == null) return '<span style="color: var(--text-muted);">-</span>';
     return `
       <div style="display: flex; align-items: center; gap: 8px;">
-        <span style="font-weight: 700; width: 36px;">${score}%</span>
-        <div style="flex: 1; height: 5px; background: var(--bg-input); border-radius: 3px; overflow: hidden; width: 60px;">
-          <div style="height: 100%; width: ${Math.min(score, 100)}%; background: ${color}; border-radius: 3px;"></div>
+        <span style="font-weight: 600; width: 36px;">${score}%</span>
+        <div style="flex: 1; height: 4px; background: var(--bg-input); border-radius: 2px; overflow: hidden; width: 60px;">
+          <div style="height: 100%; width: ${Math.min(score, 100)}%; background: var(--text-main); border-radius: 2px;"></div>
         </div>
       </div>
     `;
   }
 
-  // ─── CSV Export ─────────────────────────────────────────────────
+  // CSV Export
   function exportCSV() {
     const headers = ['Name', 'Track', 'Email', 'Phone', 'LMS Score', 'Health Status', 'Activated', 'Last Active', 'Sponsorship'];
     const rows = filteredLearners.map(l => [
@@ -775,7 +753,7 @@
     URL.revokeObjectURL(url);
   }
 
-  // ─── Mode Switching (View vs Admin) ─────────────────────────────
+  // Mode Switching (View vs Admin)
   function setupModeSwitch() {
     const viewBtn = document.getElementById('viewModeBtn');
     const adminBtn = document.getElementById('adminModeBtn');
@@ -816,7 +794,7 @@
     }
   }
 
-  // ─── Drag & Drop Excel Processing with SheetJS ─────────────────
+  // Drag & Drop Excel Processing with SheetJS
   function setupDropzone() {
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('fileInput');
@@ -851,7 +829,7 @@
       return;
     }
 
-    showStatus(`Reading and normalizing ${files.length} Excel file(s)…`, 'info');
+    showStatus(`Reading and normalizing ${files.length} Excel file(s)...`, 'info');
 
     let count = 0;
     Array.from(files).forEach(file => {
@@ -1007,30 +985,31 @@
     }
   }
 
-  // ─── Theme Switcher ─────────────────────────────────────────────
+  // Theme Switcher
   function setupThemeToggle() {
     const toggle = document.getElementById('themeToggle');
+    const container = document.getElementById('themeIconContainer');
     const html = document.documentElement;
-    if (!toggle) return;
+    if (!toggle || !container) return;
 
     const saved = localStorage.getItem('dashboard-theme');
     if (saved) {
       html.setAttribute('data-theme', saved);
-      toggle.querySelector('.theme-icon').textContent = saved === 'light' ? '☀️' : '🌙';
+      container.innerHTML = saved === 'light' ? ICONS.sun : ICONS.moon;
     }
 
     toggle.addEventListener('click', () => {
       const current = html.getAttribute('data-theme');
       const next = current === 'dark' ? 'light' : 'dark';
       html.setAttribute('data-theme', next);
-      toggle.querySelector('.theme-icon').textContent = next === 'light' ? '☀️' : '🌙';
+      container.innerHTML = next === 'light' ? ICONS.sun : ICONS.moon;
       localStorage.setItem('dashboard-theme', next);
 
       if (DATA) renderHealthChart();
     });
   }
 
-  // ─── Helpers ────────────────────────────────────────────────────
+  // Helpers
   function escapeHtml(str) {
     if (!str) return '';
     const div = document.createElement('div');
@@ -1040,7 +1019,7 @@
 
   function truncate(str, len) {
     if (!str) return '';
-    return str.length > len ? str.substring(0, len) + '…' : str;
+    return str.length > len ? str.substring(0, len) + '...' : str;
   }
 
 })();

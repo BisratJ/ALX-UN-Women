@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ALX × UN Women — Data Cleaning & Normalization Pipeline
+ALX × UN Women: Data Cleaning & Normalization Pipeline
 ========================================================
 Ingests CS and DA Excel workbooks, normalizes schemas, maps health statuses
 to 4 unified buckets, fixes payment overdue bug, and exports clean JSON
@@ -10,7 +10,7 @@ Usage:
     python3 clean_data.py
 
 Output:
-    data.json — Single JSON file consumed by the dashboard
+    data.json: Single JSON file consumed by the dashboard
 """
 
 import json
@@ -73,7 +73,7 @@ def clean_bool(val):
 
 
 def clean_date(val):
-    """Convert dates — treat 1970-01-01 sentinel as None."""
+    """Convert dates: treat 1970-01-01 sentinel as None."""
     if pd.isna(val) or not val:
         return None
     s = str(val).strip()
@@ -501,18 +501,18 @@ def build_assignment_heatmap(assignments_df, track_name):
 
 def main():
     print("\n" + "=" * 60)
-    print("  ALX × UN Women — Data Pipeline")
+    print("  ALX × UN Women: Data Pipeline")
     print("=" * 60)
     
     # --- 1. Ingest ---
-    print("\n📥 Ingesting source data...")
+    print("\n[1/5] Ingesting source data...")
     cs_registered = ingest_cs_registered()
     cs_tracker = ingest_cs_tracker()
     da_registered = ingest_da_registered()
     da_tracker = ingest_da_tracker()
     
     # --- 2. Process ---
-    print("\n🔧 Processing and normalizing...")
+    print("\n[2/5] Processing and normalizing...")
     cs_learners, cs_assignments = process_cs(cs_tracker, cs_registered)
     da_learners, da_assignments = process_da(da_tracker, da_registered)
     
@@ -520,10 +520,10 @@ def main():
     all_learners = pd.concat([cs_learners, da_learners], ignore_index=True)
     all_assignments = pd.concat([cs_assignments, da_assignments], ignore_index=True)
     
-    print(f"\n📊 Combined: {len(all_learners)} learners, {len(all_assignments)} assignment records")
+    print(f"\n[3/5] Combined: {len(all_learners)} learners, {len(all_assignments)} assignment records")
     
     # --- 4. Build dashboard data ---
-    print("\n📈 Building dashboard metrics...")
+    print("\n[4/5] Building dashboard metrics...")
     
     un_learners = all_learners[all_learners["is_un_sponsored"] == True]
     
@@ -590,7 +590,7 @@ def main():
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(output, f, ensure_ascii=False, indent=2, default=str)
     
-    print(f"\n✅ Exported to: {OUTPUT_FILE}")
+    print(f"\n[5/5] Exported to: {OUTPUT_FILE}")
     print(f"   File size: {os.path.getsize(OUTPUT_FILE) / 1024:.1f} KB")
     
     # --- Summary ---
@@ -603,10 +603,10 @@ def main():
     print(f"  Activated: {kpis['total_activated']}")
     print(f"  Graduated: {kpis['total_graduated']}")
     print(f"  Health Distribution:")
-    print(f"    ✅ Healthy: {kpis['total_healthy']}")
-    print(f"    ⚠️  Needs Support: {kpis['total_needs_support']}")
-    print(f"    🔴 At Risk: {kpis['total_at_risk']}")
-    print(f"    ⬜ Un-onboarded: {kpis['total_unonboarded']}")
+    print(f"    Healthy: {kpis['total_healthy']}")
+    print(f"    Needs Support: {kpis['total_needs_support']}")
+    print(f"    At Risk: {kpis['total_at_risk']}")
+    print(f"    Un-onboarded: {kpis['total_unonboarded']}")
     print(f"\n  CS Funnel: {funnels['cs']}")
     print(f"  DA Funnel: {funnels['da']}")
     print("=" * 60 + "\n")
