@@ -49,8 +49,77 @@
     'Not activated or no sign of life': 'Un-onboarded / Inactive',
   };
 
+  // ─── Motion One Animation Helpers ───────────────────────────────
+  // Uses Motion One (vanilla Framer Motion) when available via CDN.
+  // Gracefully falls back to CSS if Motion is not loaded.
+  const Motion = (() => {
+    const lib = window.Motion || null;
+    const animate = lib ? lib.animate : null;
+    const stagger = lib ? lib.stagger : (delay) => delay || 0;
+    const inView = lib ? lib.inView : null;
+
+    function fadeUp(els, opts = {}) {
+      if (!animate || !els) return;
+      const targets = typeof els === 'string' ? document.querySelectorAll(els) : els;
+      if (!targets || targets.length === 0) return;
+      animate(
+        targets,
+        { opacity: [0, 1], y: [20, 0] },
+        { duration: opts.duration || 0.45, delay: stagger(opts.stagger || 0.06), easing: [0.22, 1, 0.36, 1] }
+      );
+    }
+
+    function slideDown(els, opts = {}) {
+      if (!animate || !els) return;
+      const targets = typeof els === 'string' ? document.querySelectorAll(els) : els;
+      if (!targets || targets.length === 0) return;
+      animate(
+        targets,
+        { opacity: [0, 1], y: [-16, 0] },
+        { duration: opts.duration || 0.4, easing: [0.22, 1, 0.36, 1] }
+      );
+    }
+
+    function scaleIn(els, opts = {}) {
+      if (!animate || !els) return;
+      const targets = typeof els === 'string' ? document.querySelectorAll(els) : els;
+      if (!targets || targets.length === 0) return;
+      animate(
+        targets,
+        { opacity: [0, 1], scale: [0.92, 1] },
+        { duration: opts.duration || 0.35, delay: stagger(opts.stagger || 0.05), easing: [0.34, 1.56, 0.64, 1] }
+      );
+    }
+
+    function numberRoll(el, target, duration = 1.2) {
+      if (!animate || !el) return;
+      const obj = { val: 0 };
+      animate(
+        (progress) => {
+          el.textContent = Math.round(progress * target);
+        },
+        { duration, easing: [0.16, 1, 0.3, 1] }
+      );
+    }
+
+    function springIn(els, opts = {}) {
+      if (!animate || !els) return;
+      const targets = typeof els === 'string' ? document.querySelectorAll(els) : els;
+      if (!targets || targets.length === 0) return;
+      animate(
+        targets,
+        { opacity: [0, 1], scale: [0.85, 1], y: [10, 0] },
+        { duration: opts.duration || 0.5, delay: stagger(opts.stagger || 0.08), easing: [0.34, 1.56, 0.64, 1] }
+      );
+    }
+
+    return { fadeUp, slideDown, scaleIn, numberRoll, springIn, available: !!animate };
+  })();
+
   // ─── Initialization ─────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
+    // Animate header on page load
+    Motion.slideDown('.top-header');
     loadData();
     setupThemeToggle();
     setupModeSwitch();
@@ -105,6 +174,10 @@
     renderFunnels();
     renderHealthChart();
     setupTable();
+    // Animate main content sections with stagger on initial load
+    setTimeout(() => {
+      Motion.fadeUp('.section-block', { stagger: 0.1, duration: 0.5 });
+    }, 100);
   }
 
   // ─── Timestamp & Badges ─────────────────────────────────────────
@@ -221,6 +294,10 @@
       }
     });
 
+    // Animate KPI cards in with spring stagger
+    requestAnimationFrame(() => {
+      Motion.springIn('.kpi-smart-card', { stagger: 0.07, duration: 0.5 });
+    });
     animateCounters();
   }
 
@@ -311,12 +388,28 @@
       `;
     }).join('');
 
+    // Animate funnel rows in, then reveal bars
     requestAnimationFrame(() => {
+      Motion.fadeUp(funnelDisplay.querySelectorAll('.funnel-row-item'), { stagger: 0.08, duration: 0.4 });
       setTimeout(() => {
-        funnelDisplay.querySelectorAll('.funnel-track-bar-fill').forEach(bar => {
-          bar.style.width = bar.dataset.width;
-        });
-      }, 80);
+        if (Motion.available) {
+          funnelDisplay.querySelectorAll('.funnel-track-bar-fill').forEach((bar, i) => {
+            const targetWidth = bar.dataset.width;
+            bar.style.width = '0%';
+            setTimeout(() => {
+              window.Motion.animate(bar, { width: targetWidth }, {
+                duration: 0.7,
+                delay: i * 0.06,
+                easing: [0.22, 1, 0.36, 1],
+              });
+            }, 60);
+          });
+        } else {
+          funnelDisplay.querySelectorAll('.funnel-track-bar-fill').forEach(bar => {
+            bar.style.width = bar.dataset.width;
+          });
+        }
+      }, 120);
     });
   }
 
@@ -585,6 +678,11 @@
     if (rc) {
       rc.textContent = `Showing ${start + 1}–${Math.min(start + PAGE_SIZE, filteredLearners.length)} of ${filteredLearners.length} scholars`;
     }
+
+    // Animate rows in with fast stagger
+    requestAnimationFrame(() => {
+      Motion.fadeUp(tbody.querySelectorAll('tr'), { stagger: 0.03, duration: 0.3 });
+    });
   }
 
   function renderPagination() {
