@@ -415,8 +415,12 @@
     const labels = Object.keys(healthObj);
     const dataValues = Object.values(healthObj);
     
-    // Vibrant & Readable Health Palette
-    const colors = ['#10B981', '#F59E0B', '#EF4444', '#64748B'];
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+
+    // ScholarXIV Theme-Aware Health Palette
+    const colors = isDark 
+      ? ['#4ADE80', '#FACC15', '#F87171', '#94A3B8']
+      : ['#047857', '#B45309', '#B91C1C', '#475569'];
 
     // Render Legend
     if (legendList) {
@@ -439,8 +443,6 @@
     if (typeof Chart !== 'undefined') {
       if (healthChartInstance) healthChartInstance.destroy();
 
-      const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
-
       healthChartInstance = new Chart(canvas, {
         type: 'doughnut',
         data: {
@@ -461,12 +463,12 @@
           plugins: {
             legend: { display: false },
             tooltip: {
-              backgroundColor: isDark ? '#121721' : '#FFFFFF',
-              titleColor: isDark ? '#F8FAFC' : '#0F172A',
-              bodyColor: isDark ? '#94A3B8' : '#475569',
-              borderColor: isDark ? '#1E293B' : '#E2E8F0',
+              backgroundColor: isDark ? '#212124' : '#FFFFFF',
+              titleColor: isDark ? '#FFFFFF' : '#1C1C1E',
+              bodyColor: isDark ? '#9E9EA4' : '#636366',
+              borderColor: isDark ? '#313135' : '#E3E3E8',
               borderWidth: 1,
-              cornerRadius: 8,
+              cornerRadius: 6,
               padding: 10,
               titleFont: { family: 'Poppins', size: 12, weight: '600' },
               bodyFont: { family: 'Poppins', size: 11 },
