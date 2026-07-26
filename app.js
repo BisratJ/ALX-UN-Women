@@ -1,9 +1,11 @@
 /**
- * ALX Enterprise x UN Women: Learner Operations & Analytics Dashboard Logic
+ * ALX Enterprise x UN Women: Learner Operations & Analytics Dashboard Logic (v2.1)
  * ==========================================================================
- * Dual-Theme Smart UI Engine (Dark Obsidian & Light Slate) with Poppins typography,
- * 2-Axis Learner Classification (Activation x Performance), theme-aware Chart.js,
- * Admin Authentication, SheetJS Excel parser, & Motion One animations.
+ * - Content-Based Excel Program Detection (CS / DA auto-identification)
+ * - Snapshot-based Dataset Versioning & Historical Version Control
+ * - 2-Axis Learner Classification (Activation x Performance)
+ * - Refined Learner Journey Funnel & Full-Width Methodology Layout
+ * - Optimized DOM rendering (DocumentFragment, instant cache load, debouncing)
  */
 
 (function () {
@@ -25,6 +27,7 @@
   let activeFunnelTrack = 'all';
 
   let healthChartInstance = null;
+  let searchDebounceTimer = null;
 
   // Activation & Performance Sort Priority
   const ACTIVATION_SORT_ORDER = {
@@ -46,7 +49,7 @@
 
   // SVG Icons Registry (Strictly vector SVGs, no emojis)
   const ICONS = {
-    target: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+    target: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
     key: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>`,
     zap: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
     check: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
@@ -68,8 +71,8 @@
       if (!targets || targets.length === 0) return;
       animate(
         targets,
-        { opacity: [0, 1], y: [20, 0] },
-        { duration: opts.duration || 0.45, delay: stagger(opts.stagger || 0.06), easing: [0.22, 1, 0.36, 1] }
+        { opacity: [0, 1], y: [16, 0] },
+        { duration: opts.duration || 0.35, delay: stagger(opts.stagger || 0.04), easing: [0.22, 1, 0.36, 1] }
       );
     }
 
@@ -80,7 +83,7 @@
       animate(
         targets,
         { opacity: [0, 1], y: [-16, 0] },
-        { duration: opts.duration || 0.4, easing: [0.22, 1, 0.36, 1] }
+        { duration: opts.duration || 0.35, easing: [0.22, 1, 0.36, 1] }
       );
     }
 
@@ -90,8 +93,8 @@
       if (!targets || targets.length === 0) return;
       animate(
         targets,
-        { opacity: [0, 1], scale: [0.92, 1], y: [10, 0] },
-        { duration: opts.duration || 0.4, delay: stagger(opts.stagger || 0.06), easing: [0.22, 1, 0.36, 1] }
+        { opacity: [0, 1], scale: [0.95, 1], y: [8, 0] },
+        { duration: opts.duration || 0.35, delay: stagger(opts.stagger || 0.04), easing: [0.22, 1, 0.36, 1] }
       );
     }
 
@@ -106,40 +109,50 @@
     setupModeSwitch();
     setupDropzone();
     setupAdminLoginModal();
+    setupVersionHistoryModal();
   });
 
   async function loadData() {
+    // Performance optimization: Instant render from cached data if available
+    const cached = localStorage.getItem('alx_unwomen_custom_data');
+    if (cached) {
+      try {
+        DATA = JSON.parse(cached);
+        renderDashboard();
+        hideLoading();
+      } catch (e) {
+        console.warn('Failed to parse cached data, fetching data.json...');
+      }
+    }
+
     try {
       const response = await fetch('data.json');
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       DEFAULT_DATA = await response.json();
 
-      const cached = localStorage.getItem('alx_unwomen_custom_data');
-      if (cached) {
-        try {
-          DATA = JSON.parse(cached);
-        } catch (e) {
-          DATA = DEFAULT_DATA;
-        }
-      } else {
+      if (!DATA) {
         DATA = DEFAULT_DATA;
+        ensureInitialSnapshot();
+        renderDashboard();
+        hideLoading();
+      } else {
+        ensureInitialSnapshot();
       }
-
-      renderDashboard();
-      hideLoading();
     } catch (err) {
       console.error('Failed to load data.json:', err);
-      const overlay = document.getElementById('loadingOverlay');
-      if (overlay) {
-        overlay.innerHTML = `
-          <div class="empty-state">
-            <div class="empty-icon" style="color: var(--text-sub);">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      if (!DATA) {
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) {
+          overlay.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-icon" style="color: var(--text-sub);">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </div>
+              <div class="empty-title" style="margin-top: 10px;">Failed to load dashboard data</div>
+              <div class="empty-desc">Ensure data.json exists in workspace directory. Run: python3 clean_data.py</div>
             </div>
-            <div class="empty-title" style="margin-top: 10px;">Failed to load dashboard data</div>
-            <div class="empty-desc">Ensure data.json exists in workspace directory. Run: python3 clean_data.py</div>
-          </div>
-        `;
+          `;
+        }
       }
     }
   }
@@ -148,7 +161,7 @@
     const overlay = document.getElementById('loadingOverlay');
     if (overlay) {
       overlay.classList.add('hidden');
-      setTimeout(() => overlay.remove(), 400);
+      setTimeout(() => overlay.remove(), 300);
     }
   }
 
@@ -159,13 +172,13 @@
     renderHealthChart();
     setupTable();
     setTimeout(() => {
-      Motion.fadeUp('.section-block', { stagger: 0.1, duration: 0.5 });
-    }, 100);
+      Motion.fadeUp('.section-block', { stagger: 0.08, duration: 0.4 });
+    }, 50);
   }
 
-  // Timestamp & Badges
+  // Timestamp, Version Labels & Badges
   function renderTimestamp() {
-    const ts = DATA.generated_at;
+    const ts = DATA.generated_at || new Date().toISOString();
     const date = new Date(ts);
     const formatted = date.toLocaleDateString('en-US', {
       year: 'numeric', month: 'short', day: 'numeric',
@@ -177,6 +190,16 @@
 
     const footerTs = document.getElementById('footerTimestamp');
     if (footerTs) footerTs.textContent = formatted;
+
+    const versionTag = DATA.version || 'v1.0';
+    const versionLabel = document.getElementById('versionLabel');
+    if (versionLabel) versionLabel.textContent = `${versionTag} (Live)`;
+
+    const curVerTag = document.getElementById('currentVersionTag');
+    if (curVerTag) curVerTag.textContent = `${versionTag}`;
+
+    const curVerTime = document.getElementById('currentVersionTime');
+    if (curVerTime) curVerTime.textContent = formatted;
 
     const totalBadge = document.getElementById('totalLearnersBadge');
     if (totalBadge && DATA.kpis) totalBadge.textContent = DATA.kpis.total_registered || 511;
@@ -285,7 +308,7 @@
     });
 
     requestAnimationFrame(() => {
-      Motion.springIn('.kpi-smart-card', { stagger: 0.05, duration: 0.4 });
+      Motion.springIn('.kpi-smart-card', { stagger: 0.04, duration: 0.35 });
     });
     animateCounters();
   }
@@ -293,7 +316,7 @@
   function animateCounters() {
     document.querySelectorAll('.kpi-value-num[data-target]').forEach(el => {
       const target = parseInt(el.dataset.target, 10) || 0;
-      const duration = 1000;
+      const duration = 800;
       const start = performance.now();
 
       function step(now) {
@@ -308,7 +331,7 @@
     });
   }
 
-  // Funnel Analytics (Updated Journey: Seats -> Onboarded -> Activated -> On Track)
+  // Refined Funnel Analytics (Generous Spacing & Conversion Rates)
   function renderFunnels() {
     const funnelDisplay = document.getElementById('funnelDisplay');
     const trackTabs = document.getElementById('funnelTrackTabs');
@@ -360,8 +383,8 @@
     const steps = [
       { label: 'UN Sponsored Seats', val: funnelData.un_sponsored_seats },
       { label: 'LMS Onboarded', val: funnelData.lms_onboarded },
-      { label: 'Activated', val: funnelData.activated },
-      { label: 'On Track', val: funnelData.on_track },
+      { label: 'Activated Scholars', val: funnelData.activated },
+      { label: 'On Track Scholars', val: funnelData.on_track },
     ];
 
     funnelDisplay.innerHTML = steps.map(step => {
@@ -381,7 +404,7 @@
     }).join('');
 
     requestAnimationFrame(() => {
-      Motion.fadeUp(funnelDisplay.querySelectorAll('.funnel-row-item'), { stagger: 0.06, duration: 0.35 });
+      Motion.fadeUp(funnelDisplay.querySelectorAll('.funnel-row-item'), { stagger: 0.05, duration: 0.3 });
       setTimeout(() => {
         if (Motion.available) {
           funnelDisplay.querySelectorAll('.funnel-track-bar-fill').forEach((bar, i) => {
@@ -389,18 +412,18 @@
             bar.style.width = '0%';
             setTimeout(() => {
               window.Motion.animate(bar, { width: targetWidth }, {
-                duration: 0.6,
-                delay: i * 0.05,
+                duration: 0.5,
+                delay: i * 0.04,
                 easing: [0.22, 1, 0.36, 1],
               });
-            }, 50);
+            }, 40);
           });
         } else {
           funnelDisplay.querySelectorAll('.funnel-track-bar-fill').forEach(bar => {
             bar.style.width = bar.dataset.width;
           });
         }
-      }, 100);
+      }, 80);
     });
   }
 
@@ -486,13 +509,13 @@
               },
             },
           },
-          animation: { animateRotate: true, duration: 600 },
+          animation: { animateRotate: true, duration: 500 },
         },
       });
     }
   }
 
-  // Table Directory & Filters
+  // Table Directory & Filters (Optimized Debounce & Fast DOM Render)
   function setupTable() {
     const searchInput = document.getElementById('searchInput');
     const clearSearchBtn = document.getElementById('clearSearchBtn');
@@ -507,8 +530,11 @@
           if (searchInput.value.trim().length > 0) clearSearchBtn.classList.remove('hidden');
           else clearSearchBtn.classList.add('hidden');
         }
-        currentPage = 1;
-        filterAndRender();
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(() => {
+          currentPage = 1;
+          filterAndRender();
+        }, 120);
       });
     }
 
@@ -645,6 +671,7 @@
     renderPagination();
   }
 
+  // Fast Table Render using DocumentFragment
   function renderTable() {
     const tbody = document.getElementById('learnerTableBody');
     if (!tbody) return;
@@ -669,7 +696,10 @@
       return;
     }
 
-    tbody.innerHTML = page.map(l => {
+    const fragment = document.createDocumentFragment();
+    const tempContainer = document.createElement('tbody');
+
+    tempContainer.innerHTML = page.map(l => {
       const actBadgeClass = l.activation_status === 'Activated' ? 'activated' : 'not-activated';
       const perfBadgeClass = l.performance_status === 'On Track' ? 'on-track' : l.performance_status === 'Lagging Behind' ? 'lagging' : 'na';
       const trackClass = l.track === 'Cybersecurity' ? 'cs' : 'da';
@@ -701,13 +731,20 @@
       `;
     }).join('');
 
+    while (tempContainer.firstChild) {
+      fragment.appendChild(tempContainer.firstChild);
+    }
+
+    tbody.innerHTML = '';
+    tbody.appendChild(fragment);
+
     const rc = document.getElementById('resultCount');
     if (rc) {
       rc.textContent = `Showing ${start + 1} to ${Math.min(start + PAGE_SIZE, filteredLearners.length)} of ${filteredLearners.length} scholars`;
     }
 
     requestAnimationFrame(() => {
-      Motion.fadeUp(tbody.querySelectorAll('tr'), { stagger: 0.025, duration: 0.25 });
+      Motion.fadeUp(tbody.querySelectorAll('tr'), { stagger: 0.02, duration: 0.2 });
     });
   }
 
@@ -795,6 +832,7 @@
     const viewBtn = document.getElementById('viewModeBtn');
     const adminBtn = document.getElementById('adminModeBtn');
     const resetBtn = document.getElementById('resetDataBtn');
+    const openVerBtn = document.getElementById('openVersionModalBtn');
 
     if (viewBtn && adminBtn) {
       viewBtn.addEventListener('click', () => setAdminMode(false));
@@ -807,13 +845,18 @@
       });
     }
 
+    if (openVerBtn) {
+      openVerBtn.addEventListener('click', () => showVersionHistoryModal());
+    }
+
     if (resetBtn) {
       resetBtn.addEventListener('click', () => {
         if (confirm('Reset dashboard data to original default source file?')) {
           localStorage.removeItem('alx_unwomen_custom_data');
           DATA = DEFAULT_DATA;
+          saveSnapshot('v1.0 Baseline', 'Default System Restore');
           renderDashboard();
-          showStatus('Dashboard reset to default data source', 'info');
+          showStatus('Dashboard reset to default baseline data', 'info');
         }
       });
     }
@@ -896,7 +939,185 @@
     }
   }
 
-  // Drag & Drop Excel Processing with SheetJS
+  // =========================================================================
+  // DATA VERSIONING & HISTORICAL SNAPSHOT SYSTEM
+  // =========================================================================
+
+  function getSnapshots() {
+    try {
+      const raw = localStorage.getItem('alx_unwomen_snapshots');
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveSnapshot(label = 'Manual Snapshot', source = 'Admin System') {
+    if (!DATA) return;
+    const snapshots = getSnapshots();
+    
+    // Auto-increment version tag
+    const versionNum = (snapshots.length + 1.0).toFixed(1);
+    const versionTag = `v${versionNum}`;
+    DATA.version = versionTag;
+
+    const snap = {
+      id: `snap_${Date.now()}`,
+      version: versionTag,
+      timestamp: new Date().toISOString(),
+      label: label,
+      source: source,
+      kpis: { ...DATA.kpis },
+      data: JSON.parse(JSON.stringify(DATA)),
+    };
+
+    snapshots.unshift(snap);
+    // Keep last 15 snapshots
+    if (snapshots.length > 15) snapshots.pop();
+
+    try {
+      localStorage.setItem('alx_unwomen_snapshots', JSON.stringify(snapshots));
+      localStorage.setItem('alx_unwomen_custom_data', JSON.stringify(DATA));
+    } catch (e) {
+      console.warn('LocalStorage quota exceeded for snapshot save.');
+    }
+  }
+
+  function ensureInitialSnapshot() {
+    const snapshots = getSnapshots();
+    if (snapshots.length === 0 && DATA) {
+      saveSnapshot('v1.0 Baseline', 'Default System Import');
+    }
+  }
+
+  function setupVersionHistoryModal() {
+    const modal = document.getElementById('versionHistoryModal');
+    const closeBtn = document.getElementById('versionModalClose');
+    const doneBtn = document.getElementById('closeVersionModalBtn');
+    const createBtn = document.getElementById('createSnapshotBtn');
+
+    if (!modal) return;
+
+    function hide() {
+      modal.classList.add('hidden');
+    }
+
+    if (closeBtn) closeBtn.addEventListener('click', hide);
+    if (doneBtn) doneBtn.addEventListener('click', hide);
+    if (createBtn) {
+      createBtn.addEventListener('click', () => {
+        saveSnapshot('Admin Manual Snapshot', 'User Action');
+        renderSnapshotTable();
+        renderTimestamp();
+        showStatus('New data snapshot created successfully!', 'success');
+      });
+    }
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) hide();
+    });
+  }
+
+  function showVersionHistoryModal() {
+    const modal = document.getElementById('versionHistoryModal');
+    if (!modal) return;
+
+    renderSnapshotTable();
+    modal.classList.remove('hidden');
+  }
+
+  function renderSnapshotTable() {
+    const tbody = document.getElementById('snapshotsTableBody');
+    if (!tbody) return;
+
+    const snapshots = getSnapshots();
+
+    if (snapshots.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">No historical snapshots saved.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = snapshots.map(snap => {
+      const isCurrent = (DATA && DATA.version === snap.version);
+      const dateStr = new Date(snap.timestamp).toLocaleString();
+      const scholars = snap.kpis.total_registered || 0;
+      const act = snap.kpis.total_activated || 0;
+
+      return `
+        <tr style="${isCurrent ? 'background: var(--bg-card-hover); font-weight: 600;' : ''}">
+          <td>
+            <span class="version-tag-pill">${snap.version} ${isCurrent ? '✓ Active' : ''}</span>
+          </td>
+          <td>${escapeHtml(snap.label)} <span style="font-size: 10px; color: var(--text-muted);">(${escapeHtml(snap.source)})</span></td>
+          <td style="font-size: 11px; color: var(--text-sub);">${dateStr}</td>
+          <td>${scholars}</td>
+          <td><span style="color: var(--status-activated);">${act}</span></td>
+          <td>
+            <div style="display: flex; gap: 4px;">
+              ${!isCurrent ? `<button class="btn btn-outline" onclick="window.restoreSnapshot('${snap.id}')" style="padding: 2px 6px; font-size: 10px;">Restore</button>` : ''}
+              <button class="btn btn-outline" onclick="window.compareSnapshot('${snap.id}')" style="padding: 2px 6px; font-size: 10px;">Compare</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  // Global helper functions attached to window for table onclick handlers
+  window.restoreSnapshot = function (snapId) {
+    const snapshots = getSnapshots();
+    const snap = snapshots.find(s => s.id === snapId);
+    if (!snap) return;
+
+    if (confirm(`Restore snapshot version ${snap.version} (${snap.label})?`)) {
+      DATA = JSON.parse(JSON.stringify(snap.data));
+      localStorage.setItem('alx_unwomen_custom_data', JSON.stringify(DATA));
+      renderDashboard();
+      showVersionHistoryModal();
+      showStatus(`Restored data snapshot to ${snap.version}!`, 'success');
+    }
+  };
+
+  window.compareSnapshot = function (snapId) {
+    const snapshots = getSnapshots();
+    const snap = snapshots.find(s => s.id === snapId);
+    const drawer = document.getElementById('compareDrawer');
+    const grid = document.getElementById('compareGrid');
+    if (!snap || !drawer || !grid) return;
+
+    const curK = DATA.kpis;
+    const oldK = snap.kpis;
+
+    const diffReg = curK.total_registered - oldK.total_registered;
+    const diffAct = curK.total_activated - oldK.total_activated;
+    const diffOnTrack = curK.total_on_track - oldK.total_on_track;
+
+    grid.innerHTML = `
+      <div class="compare-stat-card">
+        <div class="compare-stat-label">Version Target</div>
+        <div class="compare-stat-val">${snap.version} <span style="font-size: 10px; font-weight: normal;">vs ${DATA.version || 'v1.0'}</span></div>
+      </div>
+      <div class="compare-stat-card">
+        <div class="compare-stat-label">Scholars Delta</div>
+        <div class="compare-stat-val">${curK.total_registered} <span class="compare-delta ${diffReg >= 0 ? 'delta-pos' : 'delta-neg'}">${diffReg >= 0 ? '+' : ''}${diffReg}</span></div>
+      </div>
+      <div class="compare-stat-card">
+        <div class="compare-stat-label">Activated Delta</div>
+        <div class="compare-stat-val">${curK.total_activated} <span class="compare-delta ${diffAct >= 0 ? 'delta-pos' : 'delta-neg'}">${diffAct >= 0 ? '+' : ''}${diffAct}</span></div>
+      </div>
+      <div class="compare-stat-card">
+        <div class="compare-stat-label">On Track Delta</div>
+        <div class="compare-stat-val">${curK.total_on_track} <span class="compare-delta ${diffOnTrack >= 0 ? 'delta-pos' : 'delta-neg'}">${diffOnTrack >= 0 ? '+' : ''}${diffOnTrack}</span></div>
+      </div>
+    `;
+
+    drawer.classList.remove('hidden');
+  };
+
+  // =========================================================================
+  // CONTENT-BASED FILE UPLOAD & PARTIAL UPDATE SYSTEM
+  // =========================================================================
+
   function setupDropzone() {
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('fileInput');
@@ -931,21 +1152,35 @@
       return;
     }
 
-    showStatus(`Reading and normalizing ${files.length} Excel file(s)...`, 'info');
+    showStatus(`Analyzing and parsing ${files.length} file(s)...`, 'info');
 
-    let count = 0;
+    let processedCount = 0;
     Array.from(files).forEach(file => {
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
           const data = new Uint8Array(e.target.result);
           const workbook = XLSX.read(data, { type: 'array' });
-          parseExcelWorkbook(workbook, file.name);
-          count++;
-          if (count === files.length) {
-            localStorage.setItem('alx_unwomen_custom_data', JSON.stringify(DATA));
+          
+          // Content-based program auto-detection
+          const programType = detectProgramType(workbook);
+          if (programType === 'UNKNOWN') {
+            showStatus(`Error processing ${file.name}: Unable to recognize CS or DA sheet structure. Check file columns.`, 'error');
+            return;
+          }
+
+          if (programType === 'CS') {
+            parseCSWorkbook(workbook);
+            showStatus(`Successfully parsed Cybersecurity data from ${file.name}!`, 'success');
+          } else if (programType === 'DA') {
+            parseDAWorkbook(workbook);
+            showStatus(`Successfully parsed Data Analytics data from ${file.name}!`, 'success');
+          }
+
+          processedCount++;
+          if (processedCount === files.length) {
+            saveSnapshot(`Upload: ${programType} Update`, `File Upload (${files.length} file)`);
             renderDashboard();
-            showStatus(`Successfully parsed and synchronized metrics from ${files.length} file(s)!`, 'success');
           }
         } catch (err) {
           console.error(err);
@@ -956,14 +1191,32 @@
     });
   }
 
-  function parseExcelWorkbook(wb, filename) {
-    const isCS = filename.includes('Cyber') || wb.SheetNames.some(s => s.includes('CS'));
-    if (isCS) parseCSWorkbook(wb);
-    else parseDAWorkbook(wb);
+  // Content-Based Detection (Filename-Agnostic)
+  function detectProgramType(wb) {
+    const sheets = wb.SheetNames.map(s => s.toLowerCase());
+
+    // Check Sheet Names
+    if (sheets.some(s => s.includes('cyber') || s.includes('cs'))) return 'CS';
+    if (sheets.some(s => s.includes('data analytic') || s === 'da')) return 'DA';
+
+    // Fallback: Inspect headers of first sheet
+    try {
+      const firstSheet = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+      if (json && json.length > 0) {
+        const headers = (json[0] || []).map(h => String(h).toLowerCase());
+        if (headers.includes('lms overall score') || headers.includes('cohort name')) return 'CS';
+        if (headers.includes('ehub class name') || headers.includes('course status (lms)')) return 'DA';
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    return 'UNKNOWN';
   }
 
   function parseCSWorkbook(wb) {
-    const trackerSheetName = wb.SheetNames.find(s => s.toLowerCase().includes('tracker')) || wb.SheetNames[0];
+    const trackerSheetName = wb.SheetNames.find(s => s.toLowerCase().includes('tracker') || s.toLowerCase().includes('cs')) || wb.SheetNames[0];
     const trackerSheet = wb.Sheets[trackerSheetName];
     if (!trackerSheet) return;
 
@@ -1010,6 +1263,7 @@
         }
       });
 
+      // Partial Update: Replace CS learners, preserve DA learners!
       const nonCS = DATA.learners.filter(l => l.track !== 'Cybersecurity');
       DATA.learners = [...nonCS, ...Array.from(csLearnerMap.values())];
       recalculateKPIs();
@@ -1070,6 +1324,7 @@
         }
       });
 
+      // Partial Update: Replace DA learners, preserve CS learners!
       const nonDA = DATA.learners.filter(l => l.track !== 'Data Analytics');
       DATA.learners = [...nonDA, ...Array.from(daLearnerMap.values())];
       recalculateKPIs();
@@ -1078,11 +1333,14 @@
 
   function recalculateKPIs() {
     const un = DATA.learners.filter(l => l.is_un_sponsored);
+    const cs = un.filter(l => l.track === 'Cybersecurity');
+    const da = un.filter(l => l.track === 'Data Analytics');
+
     DATA.kpis = {
       total_un_seats: 500,
       total_registered: un.length,
-      cs_registered: un.filter(l => l.track === 'Cybersecurity').length,
-      da_registered: un.filter(l => l.track === 'Data Analytics').length,
+      cs_registered: cs.length,
+      da_registered: da.length,
       total_lms_onboarded: un.filter(l => l.has_lms_login).length,
       total_activated: un.filter(l => l.activation_status === 'Activated').length,
       total_not_activated: un.filter(l => l.activation_status === 'Not Activated').length,
@@ -1091,6 +1349,26 @@
       total_performance_na: un.filter(l => l.performance_status === 'N/A').length,
       total_graduated: un.filter(l => l.is_graduated).length,
     };
+
+    DATA.funnels = {
+      cs: {
+        un_sponsored_seats: cs.length,
+        lms_onboarded: cs.filter(l => l.has_lms_login).length,
+        activated: cs.filter(l => l.activation_status === 'Activated').length,
+        on_track: cs.filter(l => l.performance_status === 'On Track').length,
+        not_activated: cs.filter(l => l.activation_status === 'Not Activated').length,
+        lagging_behind: cs.filter(l => l.performance_status === 'Lagging Behind').length,
+      },
+      da: {
+        un_sponsored_seats: da.length,
+        lms_onboarded: da.filter(l => l.has_lms_login).length,
+        activated: da.filter(l => l.activation_status === 'Activated').length,
+        on_track: da.filter(l => l.performance_status === 'On Track').length,
+        not_activated: da.filter(l => l.activation_status === 'Not Activated').length,
+        lagging_behind: da.filter(l => l.performance_status === 'Lagging Behind').length,
+      },
+    };
+
     DATA.generated_at = new Date().toISOString();
   }
 

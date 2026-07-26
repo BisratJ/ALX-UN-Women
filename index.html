@@ -52,6 +52,67 @@
     </div>
   </div>
 
+  <!-- Version History & Snapshot Manager Modal -->
+  <div class="modal-overlay hidden" id="versionHistoryModal" role="dialog" aria-modal="true" aria-labelledby="versionModalTitle">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <h3 class="modal-title" id="versionModalTitle">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 6px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Dataset Version History &amp; Snapshots
+        </h3>
+        <button class="modal-close-btn" id="versionModalClose" aria-label="Close version history modal">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">Browse, restore, or compare historical data snapshots saved during administrator updates.</p>
+        
+        <!-- Active Version Info -->
+        <div class="active-version-banner">
+          <div class="version-badge-pill">Active: <span id="currentVersionTag">v1.0 (Default)</span></div>
+          <div class="version-meta-text">Last Updated: <strong id="currentVersionTime">Live Sync</strong></div>
+        </div>
+
+        <!-- Snapshots Table -->
+        <div class="snapshots-table-wrapper">
+          <table class="smart-table" id="snapshotsTable">
+            <thead>
+              <tr>
+                <th>Version</th>
+                <th>Source / Label</th>
+                <th>Timestamp</th>
+                <th>Scholars</th>
+                <th>Activated</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="snapshotsTableBody">
+              <!-- Injected dynamically -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Version Comparison Drawer -->
+        <div class="version-compare-drawer hidden" id="compareDrawer">
+          <div class="compare-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
+            <span>Snapshot Comparison Analysis</span>
+          </div>
+          <div class="compare-grid" id="compareGrid">
+            <!-- Comparison metrics injected dynamically -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" id="createSnapshotBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          <span>Save Current Snapshot</span>
+        </button>
+        <button class="btn btn-brand" id="closeVersionModalBtn">Done</button>
+      </div>
+    </div>
+  </div>
+
   <div class="app-wrapper">
 
     <!-- Top Header Navigation Bar -->
@@ -69,8 +130,12 @@
         </div>
 
         <div class="header-controls">
-          <div class="status-pill">
+          <div class="version-tag-pill" id="headerVersionPill" title="Dataset Version">
             <span class="pulse-dot"></span>
+            <span id="versionLabel">v1.0 (Live)</span>
+          </div>
+
+          <div class="status-pill">
             <span id="lastUpdated">Live Sync</span>
           </div>
 
@@ -96,32 +161,39 @@
 
     <main class="main-content">
       
-      <!-- Admin File Upload Panel (Admin Mode) -->
+      <!-- Admin File Upload & Version Panel (Admin Mode) -->
       <section class="admin-panel hidden" id="adminBanner">
         <div class="card admin-upload-card">
           <div class="admin-card-head">
             <div>
               <h2 class="admin-headline">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 6px;"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-                Admin Control &amp; Data Update
+                Admin Control, Content Detection &amp; Versioning
               </h2>
-              <p class="admin-subtext">Drag and drop updated weekly Excel tracker exports (.xlsx) to parse and synchronize metrics in real time. Uploads replace the existing track data.</p>
+              <p class="admin-subtext">Upload updated Excel exports (.xlsx). The system automatically detects CS or DA programs via sheet headers, validates columns, creates a snapshot, and updates metrics safely.</p>
             </div>
-            <button class="btn btn-outline" id="resetDataBtn" aria-label="Reset to source data">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>
-              <span>Reset to Source Data</span>
-            </button>
+            
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button class="btn btn-outline" id="openVersionModalBtn" aria-label="Version history and snapshots">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span>Version Snapshots</span>
+              </button>
+              <button class="btn btn-outline" id="resetDataBtn" aria-label="Reset to source data">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>
+                <span>Reset to Baseline</span>
+              </button>
+            </div>
           </div>
           
           <div class="dropzone-area" id="dropzone">
             <div class="dropzone-content">
               <div class="drop-icon-wrapper">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
               </div>
-              <div class="dropzone-main-text">Drag and drop updated Excel workbooks (.xlsx) here</div>
-              <div class="dropzone-sub-text">Supports: <code>Cyber Security (CS)_UN_Women_Learner_Data.xlsx</code> or <code>Data Analytics_UN_Women_Learner_Data.xlsx</code></div>
+              <div class="dropzone-main-text">Drag and drop any updated Excel workbooks (.xlsx) here</div>
+              <div class="dropzone-sub-text">Automatic Program Detection: Supports CS or DA export workbooks independently or together. Filenames are agnostic.</div>
               <input type="file" id="fileInput" accept=".xlsx, .xls" style="display: none;" multiple>
-              <button class="btn btn-brand" onclick="document.getElementById('fileInput').click()" style="margin-top: 14px;">Select File</button>
+              <button class="btn btn-brand" onclick="document.getElementById('fileInput').click()" style="margin-top: 12px;">Select File(s)</button>
             </div>
           </div>
           <div class="upload-feedback" id="uploadStatus"></div>
@@ -147,10 +219,10 @@
 
       <!-- Learner Journey Funnel & Classification Analytics -->
       <section class="section-block">
-        <div class="grid-split-2">
+        <div class="grid-split-2 grid-equal-height">
           
           <!-- Funnel Progress Card -->
-          <div class="card">
+          <div class="card card-funnel-equal">
             <div class="card-header-flex">
               <div>
                 <h2 class="card-title">Learner Journey Funnel</h2>
@@ -163,17 +235,17 @@
               </div>
             </div>
 
-            <div class="funnel-container" id="funnelDisplay">
+            <div class="funnel-container-refined" id="funnelDisplay">
               <!-- Funnel steps injected dynamically -->
             </div>
           </div>
 
-          <!-- Learner Classification Distribution -->
-          <div class="card">
+          <!-- Learner Classification Distribution Doughnut Chart -->
+          <div class="card card-chart-equal">
             <div class="card-header-flex">
               <div>
-                <h2 class="card-title">Learner Classification</h2>
-                <p class="card-subtitle">Activation and Performance distribution across learners</p>
+                <h2 class="card-title">Learner Classification Breakdown</h2>
+                <p class="card-subtitle">Cohort distribution across Activation and Performance axes</p>
               </div>
             </div>
 
@@ -182,54 +254,104 @@
                 <canvas id="healthChartOverall"></canvas>
                 <div class="chart-center-overlay">
                   <span class="overlay-value" id="chartCenterTotal">0</span>
-                  <span class="overlay-label">Learners</span>
+                  <span class="overlay-label">Scholars</span>
                 </div>
               </div>
               <div class="health-legend-list" id="healthLegendList">
                 <!-- Legend injected dynamically -->
               </div>
             </div>
+          </div>
 
-            <!-- Classification Methodology -->
-            <div class="methodology-box">
-              <div class="methodology-title">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                <span>Classification Methodology</span>
+        </div>
+      </section>
+
+      <!-- Full-Width Classification Methodology & Business Rules Reference -->
+      <section class="section-block">
+        <div class="card methodology-card-full">
+          <div class="methodology-header">
+            <div class="methodology-title-group">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--accent-primary);"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <div>
+                <h2 class="card-title">Classification Methodology &amp; Business Rules</h2>
+                <p class="card-subtitle">Official ALX Enterprise &amp; UN Women governance criteria for Activation and Performance metrics</p>
               </div>
-              <div class="methodology-grid">
-                <div class="method-card">
-                  <div class="method-card-title">
-                    <span class="status-indicator-dot dot-activated"></span>
-                    Activated
-                  </div>
-                  <div class="method-card-desc">DA: Enrollment Activated = Yes, Course Status = Validated. CS: LMS Overall Score > 0.</div>
+            </div>
+          </div>
+
+          <div class="methodology-4col-grid">
+            <!-- Activated Card -->
+            <div class="methodology-full-card card-activated">
+              <div class="method-card-head">
+                <span class="status-indicator-dot dot-activated"></span>
+                <span class="method-badge badge-activated">Activated</span>
+              </div>
+              <div class="method-rules">
+                <div class="rule-group">
+                  <span class="rule-track-tag">Data Analytics</span>
+                  <span class="rule-text">Enrollment Activated = <strong>Yes</strong> &amp; LMS Status = <strong>Validated</strong></span>
                 </div>
-                <div class="method-card">
-                  <div class="method-card-title">
-                    <span class="status-indicator-dot dot-not-activated"></span>
-                    Not Activated
-                  </div>
-                  <div class="method-card-desc">DA: Enrollment not activated, Course Status = In Progress. CS: LMS Overall Score = 0.</div>
-                </div>
-                <div class="method-card">
-                  <div class="method-card-title">
-                    <span class="status-indicator-dot dot-on-track"></span>
-                    On Track
-                  </div>
-                  <div class="method-card-desc">DA: 3+ submissions, class = DA-3_rolling. CS: LMS Overall Score > 50.</div>
-                </div>
-                <div class="method-card">
-                  <div class="method-card-title">
-                    <span class="status-indicator-dot dot-lagging"></span>
-                    Lagging Behind
-                  </div>
-                  <div class="method-card-desc">DA: 1-2 submissions, early classes. CS: LMS Overall Score between 1 and 50.</div>
+                <div class="rule-group">
+                  <span class="rule-track-tag">Cyber Security</span>
+                  <span class="rule-text">LMS Overall Score &gt; <strong>0%</strong> (Logged in &amp; active)</span>
                 </div>
               </div>
             </div>
 
-          </div>
+            <!-- Not Activated Card -->
+            <div class="methodology-full-card card-not-activated">
+              <div class="method-card-head">
+                <span class="status-indicator-dot dot-not-activated"></span>
+                <span class="method-badge badge-not-activated">Not Activated</span>
+              </div>
+              <div class="method-rules">
+                <div class="rule-group">
+                  <span class="rule-track-tag">Data Analytics</span>
+                  <span class="rule-text">Enrollment Activated = <strong>No</strong> &amp; LMS Status = <strong>In Progress</strong></span>
+                </div>
+                <div class="rule-group">
+                  <span class="rule-track-tag">Cyber Security</span>
+                  <span class="rule-text">LMS Overall Score = <strong>0%</strong> (Zero score / Un-onboarded)</span>
+                </div>
+              </div>
+            </div>
 
+            <!-- On Track Card -->
+            <div class="methodology-full-card card-on-track">
+              <div class="method-card-head">
+                <span class="status-indicator-dot dot-on-track"></span>
+                <span class="method-badge badge-on-track">On Track</span>
+              </div>
+              <div class="method-rules">
+                <div class="rule-group">
+                  <span class="rule-track-tag">Data Analytics</span>
+                  <span class="rule-text">&ge; <strong>3 Submissions</strong> &amp; Class = <code>DA-3_rolling</code></span>
+                </div>
+                <div class="rule-group">
+                  <span class="rule-track-tag">Cyber Security</span>
+                  <span class="rule-text">LMS Overall Score &gt; <strong>50%</strong></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Lagging Behind Card -->
+            <div class="methodology-full-card card-lagging">
+              <div class="method-card-head">
+                <span class="status-indicator-dot dot-lagging"></span>
+                <span class="method-badge badge-lagging">Lagging Behind</span>
+              </div>
+              <div class="method-rules">
+                <div class="rule-group">
+                  <span class="rule-track-tag">Data Analytics</span>
+                  <span class="rule-text"><strong>1–2 Submissions</strong> &amp; Early rolling classes</span>
+                </div>
+                <div class="rule-group">
+                  <span class="rule-track-tag">Cyber Security</span>
+                  <span class="rule-text">LMS Overall Score between <strong>1% and 50%</strong></span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -263,14 +385,14 @@
             <div class="filter-select-group">
               <!-- Activation Filter Chips -->
               <div class="filter-chips" id="activationChips" role="radiogroup" aria-label="Filter by activation status">
-                <button class="chip active" data-activation="" role="radio" aria-checked="true">All</button>
+                <button class="chip active" data-activation="" role="radio" aria-checked="true">All Activation</button>
                 <button class="chip chip-activated" data-activation="Activated" role="radio" aria-checked="false">Activated</button>
                 <button class="chip chip-not-activated" data-activation="Not Activated" role="radio" aria-checked="false">Not Activated</button>
               </div>
 
               <!-- Performance Filter Chips -->
               <div class="filter-chips" id="performanceChips" role="radiogroup" aria-label="Filter by performance status">
-                <button class="chip active" data-performance="" role="radio" aria-checked="true">All</button>
+                <button class="chip active" data-performance="" role="radio" aria-checked="true">All Performance</button>
                 <button class="chip chip-on-track" data-performance="On Track" role="radio" aria-checked="false">On Track</button>
                 <button class="chip chip-lagging" data-performance="Lagging Behind" role="radio" aria-checked="false">Lagging</button>
               </div>
