@@ -6,7 +6,8 @@
   <meta name="description" content="ALX Enterprise x UN Women Learner Operations & Analytics Dashboard: Operational visibility and support for sponsored female university scholars in Cybersecurity and Data Analytics.">
   <title>ALX Enterprise x UN Women | Learner Operations & Analytics</title>
   
-  <!-- Google Fonts: Poppins -->
+  <!-- DNS Prefetch & Preconnect for Performance -->
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,900;1,400;1,600&display=swap" rel="stylesheet">
@@ -35,6 +36,13 @@
       </div>
       <div class="modal-body">
         <p class="modal-desc">Enter administrator credentials to access Data Operations mode.</p>
+
+        <!-- Admin Credentials Quick Reference Hint -->
+        <div class="admin-creds-hint" style="background: var(--bg-input); border: 1px solid var(--border-card); border-radius: var(--radius-md); padding: 10px 12px; margin-bottom: 16px; font-size: 12px; color: var(--text-sub); display: flex; align-items: center; gap: 8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span>Admin Access: <strong style="color: var(--text-main);">admin</strong> &nbsp;|&nbsp; Pass: <code style="background: var(--bg-card); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-card); color: var(--text-accent); font-family: monospace;">alx-unwomen@2026</code></span>
+        </div>
+
         <div class="form-group">
           <label class="form-label" for="adminUsername">Username</label>
           <input type="text" class="form-input" id="adminUsername" placeholder="Enter username" autocomplete="username">
@@ -69,7 +77,7 @@
         
         <!-- Active Version Info -->
         <div class="active-version-banner">
-          <div class="version-badge-pill">Active: <span id="currentVersionTag">v1.0 (Default)</span></div>
+          <div class="version-badge-pill">Active: <span id="currentVersionTag">v1.0 · Live Dataset</span></div>
           <div class="version-meta-text">Last Updated: <strong id="currentVersionTime">Live Sync</strong></div>
         </div>
 
@@ -125,14 +133,14 @@
           </div>
           <div class="brand-divider"></div>
           <div class="partner-box">
-            <img src="assets/un-women-logo.svg" alt="UN Women Logo" class="un-women-logo-img">
+            <img src="assets/un-women-logo.png" alt="UN Women Logo" class="un-women-logo-img">
           </div>
         </div>
 
         <div class="header-controls">
           <div class="version-tag-pill" id="headerVersionPill" title="Dataset Version">
             <span class="pulse-dot"></span>
-            <span id="versionLabel">v1.0 (Live)</span>
+            <span id="versionLabel">v1.0 · Live Dataset</span>
           </div>
 
           <div class="status-pill">
@@ -289,11 +297,11 @@
               <div class="method-rules">
                 <div class="rule-group">
                   <span class="rule-track-tag">Data Analytics</span>
-                  <span class="rule-text">Enrollment Activated = <strong>Yes</strong> &amp; LMS Status = <strong>Validated</strong></span>
+                  <span class="rule-text">Activated enrollment &amp; verified system access</span>
                 </div>
                 <div class="rule-group">
                   <span class="rule-track-tag">Cyber Security</span>
-                  <span class="rule-text">LMS Overall Score &gt; <strong>0%</strong> (Logged in &amp; active)</span>
+                  <span class="rule-text">Logged into learning portal &amp; actively engaged</span>
                 </div>
               </div>
             </div>
@@ -307,11 +315,11 @@
               <div class="method-rules">
                 <div class="rule-group">
                   <span class="rule-track-tag">Data Analytics</span>
-                  <span class="rule-text">Enrollment Activated = <strong>No</strong> &amp; LMS Status = <strong>In Progress</strong></span>
+                  <span class="rule-text">Pending enrollment completion or portal validation</span>
                 </div>
                 <div class="rule-group">
                   <span class="rule-track-tag">Cyber Security</span>
-                  <span class="rule-text">LMS Overall Score = <strong>0%</strong> (Zero score / Un-onboarded)</span>
+                  <span class="rule-text">Registered but not yet logged in or started</span>
                 </div>
               </div>
             </div>
@@ -325,11 +333,11 @@
               <div class="method-rules">
                 <div class="rule-group">
                   <span class="rule-track-tag">Data Analytics</span>
-                  <span class="rule-text">&ge; <strong>3 Submissions</strong> &amp; Class = <code>DA-3_rolling</code></span>
+                  <span class="rule-text">Steady progress with <strong>3+ submissions</strong> in rolling modules</span>
                 </div>
                 <div class="rule-group">
                   <span class="rule-track-tag">Cyber Security</span>
-                  <span class="rule-text">LMS Overall Score &gt; <strong>50%</strong></span>
+                  <span class="rule-text">Strong performance maintaining score <strong>above 50%</strong></span>
                 </div>
               </div>
             </div>
@@ -343,11 +351,11 @@
               <div class="method-rules">
                 <div class="rule-group">
                   <span class="rule-track-tag">Data Analytics</span>
-                  <span class="rule-text"><strong>1–2 Submissions</strong> &amp; Early rolling classes</span>
+                  <span class="rule-text">Requires outreach support with <strong>1–2 submissions</strong></span>
                 </div>
                 <div class="rule-group">
                   <span class="rule-track-tag">Cyber Security</span>
-                  <span class="rule-text">LMS Overall Score between <strong>1% and 50%</strong></span>
+                  <span class="rule-text">Needs assistance to boost score (currently <strong>1% to 50%</strong>)</span>
                 </div>
               </div>
             </div>
@@ -361,7 +369,7 @@
           <div class="table-header-bar">
             <div>
               <h2 class="card-title">Learner Directory &amp; Action Matrix</h2>
-              <p class="card-subtitle">Filter by classification status and export target lists for intervention outreach</p>
+              <p class="card-subtitle">Filter by classification status, time activity, and export target lists for intervention outreach</p>
             </div>
             
             <button class="btn btn-brand" id="exportCsvBtn" aria-label="Export learner list to CSV">
@@ -402,6 +410,15 @@
                 <option value="">All Tracks</option>
                 <option value="Cybersecurity">Cybersecurity (CS)</option>
                 <option value="Data Analytics">Data Analytics (DA)</option>
+              </select>
+
+              <!-- Time / Activity Filter -->
+              <select class="custom-select" id="filterTime" aria-label="Filter by Time / Activity">
+                <option value="">All Time Periods</option>
+                <option value="7">Active (Last 7 Days)</option>
+                <option value="30">Active (Last 30 Days)</option>
+                <option value="90">Active (Last 90 Days)</option>
+                <option value="inactive">Inactive / No Activity</option>
               </select>
             </div>
           </div>
@@ -453,10 +470,11 @@
 
   </div>
 
-  <!-- CDNs: SheetJS + Chart.js + Motion One -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- CDNs: Chart.js (critical) + Motion One (animations) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/motion@10.18.0/dist/motion.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/motion@10.18.0/dist/motion.js" async></script>
   <script src="app.js"></script>
+  <!-- SheetJS: Lazy-loaded (only needed for Admin file uploads, ~470KB) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
 </body>
 </html>

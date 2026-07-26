@@ -1,5 +1,5 @@
 /* ==========================================================================
-   ALX Enterprise × UN Women Dashboard: ScholarXIV Design System
+   ALX Enterprise x UN Women Dashboard: ScholarXIV Design System
    Refined ScholarXIV Aesthetic for Dark and Light Modes
    ========================================================================== */
 
@@ -132,6 +132,10 @@ body {
   transition: background-color 0.25s ease, color 0.25s ease;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .app-wrapper {
   position: relative;
   z-index: 1;
@@ -156,6 +160,7 @@ body {
 .loading-overlay.hidden {
   opacity: 0;
   pointer-events: none;
+  display: none !important;
 }
 
 .loading-spinner {
@@ -250,8 +255,10 @@ body {
 }
 
 .un-women-logo-img {
-  height: 26px;
+  height: 28px;
   width: auto;
+  object-fit: contain;
+  vertical-align: middle;
 }
 
 .header-controls {
@@ -277,8 +284,8 @@ body {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--status-healthy);
-  box-shadow: 0 0 6px var(--status-healthy);
+  background: var(--status-activated);
+  box-shadow: 0 0 6px var(--status-activated);
   animation: pulse-glow 2s infinite;
 }
 
@@ -641,6 +648,8 @@ body {
   display: flex;
   align-items: center;
   gap: 20px;
+  flex: 1;
+  padding: 10px 0;
 }
 
 .chart-canvas-wrapper {
@@ -711,35 +720,6 @@ body {
   color: var(--text-main);
 }
 
-/* Methodology Box */
-.methodology-box {
-  background: var(--bg-input);
-  border: 1px solid var(--border-card);
-  border-radius: var(--radius-lg);
-  padding: 12px 14px;
-  margin-top: 14px;
-}
-
-.methodology-title {
-  font-weight: 600;
-  font-size: 11px;
-  color: var(--text-main);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
-.methodology-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 8px;
-}
-
-.method-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--radius-md);
 /* Full-Width Methodology Card & 4-Column Grid */
 .methodology-card-full {
   padding: 22px 24px;
@@ -794,6 +774,19 @@ body {
   align-items: center;
   gap: 8px;
 }
+
+.status-indicator-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot-activated { background: var(--status-activated); }
+.dot-not-activated { background: var(--status-not-activated); }
+.dot-on-track { background: var(--status-on-track); }
+.dot-lagging { background: var(--status-lagging); }
+.dot-na { background: var(--status-na); }
 
 .method-badge {
   font-size: 11px;
@@ -919,18 +912,18 @@ body {
   flex-wrap: wrap;
 }
 
-/* Health Filter Chips (ScholarXIV Tag Style) */
+/* Health & Classification Filter Chips */
 .filter-chips {
   display: flex;
-  gap: 2px;
+  gap: 4px;
   background: var(--bg-input);
-  padding: 2px;
+  padding: 3px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-card);
 }
 
 .chip {
-  padding: 4px 10px;
+  padding: 5px 12px;
   border: none;
   background: transparent;
   color: var(--text-sub);
@@ -940,6 +933,7 @@ body {
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
 .chip:hover { color: var(--text-main); }
@@ -1130,13 +1124,6 @@ body {
   border: 1px solid var(--status-na-border);
 }
 
-.status-badge-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
 /* Track Pills */
 .track-tag {
   display: inline-flex;
@@ -1166,12 +1153,13 @@ body {
 .pagination-controls {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 .pagination-controls button {
-  width: 28px;
-  height: 28px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-card);
   background: var(--bg-input);
@@ -1180,18 +1168,24 @@ body {
   font-weight: 500;
   font-size: 11px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.15s ease;
 }
 
 .pagination-controls button:hover:not(:disabled) {
   border-color: var(--border-card-hover);
   color: var(--text-main);
+  background: var(--bg-card-hover);
 }
 
 .pagination-controls button.active {
   background: var(--bg-card);
   color: var(--text-main);
-  border-color: var(--border-card-hover);
+  border-color: var(--accent-primary);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
 }
 
 .pagination-controls button:disabled {
@@ -1234,7 +1228,7 @@ body {
 .dropzone-area {
   border: 1.5px dashed var(--border-card);
   border-radius: var(--radius-lg);
-  padding: 28px 16px;
+  padding: 24px 16px;
   text-align: center;
   background: var(--bg-input);
   transition: all 0.2s ease;
@@ -1276,8 +1270,8 @@ body {
   font-weight: 500;
 }
 
-.upload-feedback.success { color: var(--status-healthy); }
-.upload-feedback.error { color: var(--status-risk); }
+.upload-feedback.success { color: var(--status-activated); }
+.upload-feedback.error { color: var(--status-not-activated); }
 .upload-feedback.info { color: var(--text-accent); }
 
 /* Footer */
@@ -1309,10 +1303,6 @@ body {
 .footer-logo {
   font-weight: 600;
   color: var(--text-sub);
-}
-
-.hidden {
-  display: none !important;
 }
 
 /* Micro-interactions & Focus */
@@ -1461,6 +1451,13 @@ select:focus-visible {
   transition: opacity 0.2s ease;
 }
 
+.modal-overlay.hidden {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
 .modal-card {
   background: var(--bg-card);
   border: 1px solid var(--border-card);
@@ -1552,11 +1549,21 @@ select:focus-visible {
 .login-error {
   margin-top: 10px;
   font-size: 11px;
-  color: var(--status-risk, #F87171);
+  color: var(--status-not-activated, #F87171);
   background: rgba(248, 113, 113, 0.1);
   padding: 8px 12px;
   border-radius: var(--radius-sm);
   border: 1px solid rgba(248, 113, 113, 0.2);
+}
+
+.modal-footer {
+  padding: 14px 20px;
+  background: var(--bg-input);
+  border-top: 1px solid var(--border-card);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .modal-card.modal-lg {
@@ -1664,3 +1671,21 @@ select:focus-visible {
 
 .delta-pos { color: var(--status-activated); }
 .delta-neg { color: var(--status-not-activated); }
+
+/* Performance: content-visibility for off-screen rendering optimization */
+#tableSection {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 800px;
+}
+
+.methodology-card-full {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 280px;
+}
+
+/* Smooth GPU-composited transitions */
+.funnel-track-bar-fill,
+.status-pill-badge,
+.chip {
+  will-change: transform, opacity;
+}

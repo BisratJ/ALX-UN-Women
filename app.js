@@ -24,6 +24,7 @@
   let activeActivationFilter = '';
   let activePerformanceFilter = '';
   let activeTrackFilter = '';
+  let activeTimeFilter = '';
   let activeFunnelTrack = 'all';
 
   let healthChartInstance = null;
@@ -44,7 +45,7 @@
   // Static Admin Credentials
   const ADMIN_CREDS = {
     user: 'admin',
-    pass: 'unwomen2024',
+    pass: 'alx-unwomen@2026',
   };
 
   // SVG Icons Registry (Strictly vector SVGs, no emojis)
@@ -193,10 +194,10 @@
 
     const versionTag = DATA.version || 'v1.0';
     const versionLabel = document.getElementById('versionLabel');
-    if (versionLabel) versionLabel.textContent = `${versionTag} (Live)`;
+    if (versionLabel) versionLabel.textContent = `${versionTag} · Live Dataset`;
 
     const curVerTag = document.getElementById('currentVersionTag');
-    if (curVerTag) curVerTag.textContent = `${versionTag}`;
+    if (curVerTag) curVerTag.textContent = `${versionTag} · Live Dataset`;
 
     const curVerTime = document.getElementById('currentVersionTime');
     if (curVerTime) curVerTime.textContent = formatted;
@@ -520,6 +521,7 @@
     const searchInput = document.getElementById('searchInput');
     const clearSearchBtn = document.getElementById('clearSearchBtn');
     const filterTrack = document.getElementById('filterTrack');
+    const filterTime = document.getElementById('filterTime');
     const activationChips = document.getElementById('activationChips');
     const performanceChips = document.getElementById('performanceChips');
     const exportBtn = document.getElementById('exportCsvBtn');
@@ -550,6 +552,14 @@
     if (filterTrack) {
       filterTrack.addEventListener('change', () => {
         activeTrackFilter = filterTrack.value;
+        currentPage = 1;
+        filterAndRender();
+      });
+    }
+
+    if (filterTime) {
+      filterTime.addEventListener('change', () => {
+        activeTimeFilter = filterTime.value;
         currentPage = 1;
         filterAndRender();
       });
@@ -623,10 +633,36 @@
   function filterAndRender() {
     const search = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
 
+    // Determine max submission timestamp in dataset for relative time window calculations
+    let maxTimestamp = 0;
+    if (activeTimeFilter && activeTimeFilter !== 'inactive' && DATA && DATA.learners) {
+      DATA.learners.forEach(l => {
+        if (l.last_submission_date && l.last_submission_date !== '-') {
+          const t = new Date(l.last_submission_date).getTime();
+          if (!isNaN(t) && t > maxTimestamp) maxTimestamp = t;
+        }
+      });
+      if (maxTimestamp === 0) maxTimestamp = Date.now();
+    }
+
     filteredLearners = DATA.learners.filter(l => {
       if (activeTrackFilter && l.track !== activeTrackFilter) return false;
       if (activeActivationFilter && l.activation_status !== activeActivationFilter) return false;
       if (activePerformanceFilter && l.performance_status !== activePerformanceFilter) return false;
+
+      if (activeTimeFilter) {
+        if (activeTimeFilter === 'inactive') {
+          if (l.last_submission_date && l.last_submission_date !== '-' && (l.num_submissions || 0) > 0) return false;
+        } else {
+          const daysLimit = parseInt(activeTimeFilter, 10);
+          if (!l.last_submission_date || l.last_submission_date === '-') return false;
+          const subTime = new Date(l.last_submission_date).getTime();
+          if (isNaN(subTime)) return false;
+          const diffDays = (maxTimestamp - subTime) / (1000 * 60 * 60 * 24);
+          if (diffDays > daysLimit) return false;
+        }
+      }
+
       if (search) {
         const text = `${l.full_name} ${l.email} ${l.phone}`.toLowerCase();
         if (!text.includes(search)) return false;
@@ -968,7 +1004,7 @@
       label: label,
       source: source,
       kpis: { ...DATA.kpis },
-      data: JSON.parse(JSON.stringify(DATA)),
+      data: typeof structuredClone === 'function' ? structuredClone(DATA) : JSON.parse(JSON.stringify(DATA)),
     };
 
     snapshots.unshift(snap);
@@ -1404,12 +1440,12 @@
     });
   }
 
-  // Helpers
+  // Helpers — fast string-based escapeHtml (no DOM allocation per call)
+  const _escapeMap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  const _escapeRe = /[&<>"']/g;
   function escapeHtml(str) {
     if (!str) return '';
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+    return String(str).replace(_escapeRe, ch => _escapeMap[ch]);
   }
 
 })();
