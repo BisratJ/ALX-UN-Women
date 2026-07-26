@@ -1,8 +1,9 @@
 /**
- * ALX Enterprise × UN Women: Learner Operations & Analytics Dashboard Logic
+ * ALX Enterprise x UN Women: Learner Operations & Analytics Dashboard Logic
  * ==========================================================================
  * Dual-Theme Smart UI Engine (Dark Obsidian & Light Slate) with Poppins typography,
- * vibrant KPI cards, theme-aware Chart.js, SheetJS parser, & Motion One animations.
+ * 2-Axis Learner Classification (Activation x Performance), theme-aware Chart.js,
+ * Admin Authentication, SheetJS Excel parser, & Motion One animations.
  */
 
 (function () {
@@ -15,42 +16,37 @@
   let currentPage = 1;
   const PAGE_SIZE = 25;
 
-  let sortColumn = 'unified_health';
+  let sortColumn = 'activation_status';
   let sortDirection = 'asc';
 
-  let activeHealthFilter = '';
+  let activeActivationFilter = '';
+  let activePerformanceFilter = '';
   let activeTrackFilter = '';
   let activeFunnelTrack = 'all';
 
   let healthChartInstance = null;
 
-  // Health priority sort order (Risk & Support first)
-  const HEALTH_SORT_ORDER = {
-    'At Risk': 0,
-    'Needs Support': 1,
-    'Un-onboarded / Inactive': 2,
-    'Healthy / On-Track': 3,
+  // Activation & Performance Sort Priority
+  const ACTIVATION_SORT_ORDER = {
+    'Not Activated': 0,
+    'Activated': 1,
   };
 
-  const HEALTH_MAP_CS = {
-    'active': 'Healthy / On-Track',
-    'on-track': 'Healthy / On-Track',
-    'at-risk': 'At Risk',
+  const PERFORMANCE_SORT_ORDER = {
+    'Lagging Behind': 0,
+    'On Track': 1,
+    'N/A': 2,
   };
 
-  const HEALTH_MAP_DA = {
-    'Active state': 'Healthy / On-Track',
-    'Graduated': 'Healthy / On-Track',
-    'Slow but progressing state': 'Needs Support',
-    'Stalled state': 'Needs Support',
-    'At risk state': 'At Risk',
-    'Disengaged state': 'At Risk',
-    'Not activated or no sign of life': 'Un-onboarded / Inactive',
+  // Static Admin Credentials
+  const ADMIN_CREDS = {
+    user: 'admin',
+    pass: 'unwomen2024',
   };
 
   // SVG Icons Registry (Strictly vector SVGs, no emojis)
   const ICONS = {
-    target: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+    target: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
     key: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>`,
     zap: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
     check: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
@@ -109,6 +105,7 @@
     setupThemeToggle();
     setupModeSwitch();
     setupDropzone();
+    setupAdminLoginModal();
   });
 
   async function loadData() {
@@ -182,73 +179,80 @@
     if (footerTs) footerTs.textContent = formatted;
 
     const totalBadge = document.getElementById('totalLearnersBadge');
-    if (totalBadge && DATA.kpis) totalBadge.textContent = DATA.kpis.total_registered || 512;
+    if (totalBadge && DATA.kpis) totalBadge.textContent = DATA.kpis.total_registered || 511;
   }
 
-  // KPI Cards Grid
+  // KPI Cards Grid (Revised 6 KPIs)
   function renderKPIs() {
     const k = DATA.kpis;
-    const onboardingRate = k.total_registered > 0
-      ? ((k.total_lms_login / k.total_registered) * 100).toFixed(1)
-      : 0;
-    const activationRate = k.total_registered > 0
-      ? ((k.total_activated / k.total_registered) * 100).toFixed(1)
-      : 0;
+    const reg = k.total_registered || 1;
+
+    const onboardingRate = ((k.total_lms_onboarded / reg) * 100).toFixed(1);
+    const activationRate = ((k.total_activated / reg) * 100).toFixed(1);
+    const onTrackRate = ((k.total_on_track / reg) * 100).toFixed(1);
+    const notActivatedRate = ((k.total_not_activated / reg) * 100).toFixed(1);
+    const laggingRate = ((k.total_lagging_behind / reg) * 100).toFixed(1);
 
     const kpis = [
       {
-        id: 'kpi-all',
+        id: 'kpi-seats',
         label: 'UN Sponsored Seats',
         value: k.total_un_seats,
-        detail: `${k.total_registered} female scholars registered`,
+        detail: `${k.total_registered} scholars registered`,
         color: 'blue',
         icon: ICONS.target,
-        filterHealth: '',
+        filterActivation: '',
+        filterPerformance: '',
       },
       {
         id: 'kpi-onboarded',
         label: 'LMS Onboarded',
-        value: k.total_lms_login,
+        value: k.total_lms_onboarded,
         detail: `${onboardingRate}% onboarding rate`,
         color: 'blue',
         icon: ICONS.key,
-        filterHealth: '',
+        filterActivation: '',
+        filterPerformance: '',
       },
       {
         id: 'kpi-activated',
-        label: 'Enrollment Activated',
+        label: 'Activated',
         value: k.total_activated,
         detail: `${activationRate}% activation rate`,
-        color: 'orange',
-        icon: ICONS.zap,
-        filterHealth: '',
-      },
-      {
-        id: 'kpi-healthy',
-        label: 'Healthy / On-Track',
-        value: k.total_healthy,
-        detail: `${((k.total_healthy / k.total_registered) * 100).toFixed(1)}% of cohort`,
         color: 'green',
+        icon: ICONS.zap,
+        filterActivation: 'Activated',
+        filterPerformance: '',
+      },
+      {
+        id: 'kpi-ontrack',
+        label: 'On Track',
+        value: k.total_on_track,
+        detail: `${onTrackRate}% meeting targets`,
+        color: 'blue',
         icon: ICONS.check,
-        filterHealth: 'Healthy / On-Track',
+        filterActivation: '',
+        filterPerformance: 'On Track',
       },
       {
-        id: 'kpi-risk',
-        label: 'At Risk',
-        value: k.total_at_risk,
-        detail: 'Immediate outreach list',
+        id: 'kpi-not-activated',
+        label: 'Not Activated',
+        value: k.total_not_activated,
+        detail: `${notActivatedRate}% pending activation`,
         color: 'red',
-        icon: ICONS.alert,
-        filterHealth: 'At Risk',
+        icon: ICONS.minus,
+        filterActivation: 'Not Activated',
+        filterPerformance: '',
       },
       {
-        id: 'kpi-inactive',
-        label: 'Un-onboarded / Inactive',
-        value: k.total_unonboarded,
-        detail: 'Zero platform activity',
-        color: 'gray',
-        icon: ICONS.minus,
-        filterHealth: 'Un-onboarded / Inactive',
+        id: 'kpi-lagging',
+        label: 'Lagging Behind',
+        value: k.total_lagging_behind,
+        detail: `${laggingRate}% outreach targets`,
+        color: 'orange',
+        icon: ICONS.alert,
+        filterActivation: '',
+        filterPerformance: 'Lagging Behind',
       },
     ];
 
@@ -256,7 +260,7 @@
     if (!grid) return;
 
     grid.innerHTML = kpis.map(kpi => `
-      <div class="kpi-smart-card kpi-${kpi.color}" id="${kpi.id}" data-health="${kpi.filterHealth}">
+      <div class="kpi-smart-card kpi-${kpi.color}" id="${kpi.id}" data-act="${kpi.filterActivation}" data-perf="${kpi.filterPerformance}">
         <div class="kpi-header-row">
           <span class="kpi-title-label">${kpi.label}</span>
           <div class="kpi-icon-bubble">${kpi.icon}</div>
@@ -270,8 +274,9 @@
       const el = document.getElementById(kpi.id);
       if (el) {
         el.addEventListener('click', () => {
-          activeHealthFilter = kpi.filterHealth;
-          updateHealthChipUI();
+          activeActivationFilter = kpi.filterActivation;
+          activePerformanceFilter = kpi.filterPerformance;
+          updateChipUI();
           currentPage = 1;
           filterAndRender();
           document.getElementById('tableSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -303,7 +308,7 @@
     });
   }
 
-  // Funnel Analytics
+  // Funnel Analytics (Updated Journey: Seats -> Onboarded -> Activated -> On Track)
   function renderFunnels() {
     const funnelDisplay = document.getElementById('funnelDisplay');
     const trackTabs = document.getElementById('funnelTrackTabs');
@@ -312,8 +317,12 @@
     if (trackTabs) {
       trackTabs.querySelectorAll('.pill-tab').forEach(tab => {
         tab.addEventListener('click', () => {
-          trackTabs.querySelectorAll('.pill-tab').forEach(t => t.classList.remove('active'));
+          trackTabs.querySelectorAll('.pill-tab').forEach(t => {
+            t.classList.remove('active');
+            t.setAttribute('aria-selected', 'false');
+          });
           tab.classList.add('active');
+          tab.setAttribute('aria-selected', 'true');
           activeFunnelTrack = tab.dataset.track;
           renderFunnelContent();
         });
@@ -327,7 +336,7 @@
     const funnelDisplay = document.getElementById('funnelDisplay');
     if (!funnelDisplay) return;
 
-    let funnelData = { registered: 0, logged_into_lms: 0, activated: 0, submitted_first: 0, graduated: 0 };
+    let funnelData = { un_sponsored_seats: 0, lms_onboarded: 0, activated: 0, on_track: 0, not_activated: 0, lagging_behind: 0 };
 
     if (activeFunnelTrack === 'cs') {
       funnelData = DATA.funnels.cs || funnelData;
@@ -337,22 +346,22 @@
       const cs = DATA.funnels.cs || {};
       const da = DATA.funnels.da || {};
       funnelData = {
-        registered: (cs.registered || 0) + (da.registered || 0),
-        logged_into_lms: (cs.logged_into_lms || 0) + (da.logged_into_lms || 0),
+        un_sponsored_seats: (cs.un_sponsored_seats || 0) + (da.un_sponsored_seats || 0),
+        lms_onboarded: (cs.lms_onboarded || 0) + (da.lms_onboarded || 0),
         activated: (cs.activated || 0) + (da.activated || 0),
-        submitted_first: (cs.submitted_first || 0) + (da.submitted_first || 0),
-        graduated: (cs.graduated || 0) + (da.graduated || 0),
+        on_track: (cs.on_track || 0) + (da.on_track || 0),
+        not_activated: (cs.not_activated || 0) + (da.not_activated || 0),
+        lagging_behind: (cs.lagging_behind || 0) + (da.lagging_behind || 0),
       };
     }
 
-    const maxVal = funnelData.registered || 1;
+    const maxVal = funnelData.un_sponsored_seats || 1;
 
     const steps = [
-      { label: 'Registered Scholars', val: funnelData.registered },
-      { label: 'LMS Onboarded', val: funnelData.logged_into_lms },
-      { label: 'Enrollment Activated', val: funnelData.activated },
-      { label: 'Submitted 1+ Milestone', val: funnelData.submitted_first },
-      { label: 'Graduated / Passed', val: funnelData.graduated },
+      { label: 'UN Sponsored Seats', val: funnelData.un_sponsored_seats },
+      { label: 'LMS Onboarded', val: funnelData.lms_onboarded },
+      { label: 'Activated', val: funnelData.activated },
+      { label: 'On Track', val: funnelData.on_track },
     ];
 
     funnelDisplay.innerHTML = steps.map(step => {
@@ -395,32 +404,32 @@
     });
   }
 
-  // Health Chart (Theme-Aware Doughnut)
+  // Classification Chart (Theme-Aware Doughnut for Activation + Performance)
   function renderHealthChart() {
     const canvas = document.getElementById('healthChartOverall');
     const legendList = document.getElementById('healthLegendList');
     if (!canvas) return;
 
-    const healthObj = {
-      'Healthy / On-Track': DATA.kpis.total_healthy || 0,
-      'Needs Support': DATA.kpis.total_needs_support || 0,
-      'At Risk': DATA.kpis.total_at_risk || 0,
-      'Un-onboarded / Inactive': DATA.kpis.total_unonboarded || 0,
+    const classObj = {
+      'Activated': DATA.kpis.total_activated || 0,
+      'Not Activated': DATA.kpis.total_not_activated || 0,
+      'On Track': DATA.kpis.total_on_track || 0,
+      'Lagging Behind': DATA.kpis.total_lagging_behind || 0,
     };
 
-    const total = Object.values(healthObj).reduce((a, b) => a + b, 0);
+    const total = DATA.kpis.total_registered || 511;
     const centerEl = document.getElementById('chartCenterTotal');
     if (centerEl) centerEl.textContent = total;
 
-    const labels = Object.keys(healthObj);
-    const dataValues = Object.values(healthObj);
+    const labels = Object.keys(classObj);
+    const dataValues = Object.values(classObj);
     
     const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
 
-    // ScholarXIV Theme-Aware Health Palette
+    // Theme-Aware Classification Palette
     const colors = isDark 
-      ? ['#4ADE80', '#FACC15', '#F87171', '#94A3B8']
-      : ['#047857', '#B45309', '#B91C1C', '#475569'];
+      ? ['#4ADE80', '#94A3B8', '#60A5FA', '#FACC15']
+      : ['#047857', '#475569', '#2563EB', '#B45309'];
 
     // Render Legend
     if (legendList) {
@@ -488,7 +497,8 @@
     const searchInput = document.getElementById('searchInput');
     const clearSearchBtn = document.getElementById('clearSearchBtn');
     const filterTrack = document.getElementById('filterTrack');
-    const healthChips = document.getElementById('healthChips');
+    const activationChips = document.getElementById('activationChips');
+    const performanceChips = document.getElementById('performanceChips');
     const exportBtn = document.getElementById('exportCsvBtn');
 
     if (searchInput) {
@@ -519,11 +529,22 @@
       });
     }
 
-    if (healthChips) {
-      healthChips.querySelectorAll('.chip').forEach(chip => {
+    if (activationChips) {
+      activationChips.querySelectorAll('.chip').forEach(chip => {
         chip.addEventListener('click', () => {
-          activeHealthFilter = chip.dataset.health;
-          updateHealthChipUI();
+          activeActivationFilter = chip.dataset.activation;
+          updateChipUI();
+          currentPage = 1;
+          filterAndRender();
+        });
+      });
+    }
+
+    if (performanceChips) {
+      performanceChips.querySelectorAll('.chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          activePerformanceFilter = chip.dataset.performance;
+          updateChipUI();
           currentPage = 1;
           filterAndRender();
         });
@@ -540,10 +561,14 @@
           sortColumn = col;
           sortDirection = 'asc';
         }
-        document.querySelectorAll('.smart-table th').forEach(h => h.classList.remove('sorted'));
+        document.querySelectorAll('.smart-table th').forEach(h => {
+          h.classList.remove('sorted');
+          h.setAttribute('aria-sort', 'none');
+        });
         th.classList.add('sorted');
+        th.setAttribute('aria-sort', sortDirection === 'asc' ? 'ascending' : 'descending');
         const icon = th.querySelector('.sort-icon');
-        if (icon) icon.textContent = sortDirection === 'asc' ? '↑' : '↓';
+        if (icon) icon.innerHTML = sortDirection === 'asc' ? '&#8593;' : '&#8595;';
         filterAndRender();
       });
     });
@@ -553,11 +578,19 @@
     filterAndRender();
   }
 
-  function updateHealthChipUI() {
-    const chips = document.querySelectorAll('#healthChips .chip');
-    chips.forEach(chip => {
-      if (chip.dataset.health === activeHealthFilter) chip.classList.add('active');
-      else chip.classList.remove('active');
+  function updateChipUI() {
+    const actChips = document.querySelectorAll('#activationChips .chip');
+    actChips.forEach(chip => {
+      const match = chip.dataset.activation === activeActivationFilter;
+      chip.classList.toggle('active', match);
+      chip.setAttribute('aria-checked', match ? 'true' : 'false');
+    });
+
+    const perfChips = document.querySelectorAll('#performanceChips .chip');
+    perfChips.forEach(chip => {
+      const match = chip.dataset.performance === activePerformanceFilter;
+      chip.classList.toggle('active', match);
+      chip.setAttribute('aria-checked', match ? 'true' : 'false');
     });
   }
 
@@ -566,7 +599,8 @@
 
     filteredLearners = DATA.learners.filter(l => {
       if (activeTrackFilter && l.track !== activeTrackFilter) return false;
-      if (activeHealthFilter && l.unified_health !== activeHealthFilter) return false;
+      if (activeActivationFilter && l.activation_status !== activeActivationFilter) return false;
+      if (activePerformanceFilter && l.performance_status !== activePerformanceFilter) return false;
       if (search) {
         const text = `${l.full_name} ${l.email} ${l.phone}`.toLowerCase();
         if (!text.includes(search)) return false;
@@ -579,9 +613,12 @@
       let va = a[sortColumn];
       let vb = b[sortColumn];
 
-      if (sortColumn === 'unified_health') {
-        va = HEALTH_SORT_ORDER[va] ?? 99;
-        vb = HEALTH_SORT_ORDER[vb] ?? 99;
+      if (sortColumn === 'activation_status') {
+        va = ACTIVATION_SORT_ORDER[va] ?? 99;
+        vb = ACTIVATION_SORT_ORDER[vb] ?? 99;
+      } else if (sortColumn === 'performance_status') {
+        va = PERFORMANCE_SORT_ORDER[va] ?? 99;
+        vb = PERFORMANCE_SORT_ORDER[vb] ?? 99;
       }
 
       if (va == null && vb == null) return 0;
@@ -633,12 +670,10 @@
     }
 
     tbody.innerHTML = page.map(l => {
-      const healthClass = getHealthClass(l.unified_health);
+      const actBadgeClass = l.activation_status === 'Activated' ? 'activated' : 'not-activated';
+      const perfBadgeClass = l.performance_status === 'On Track' ? 'on-track' : l.performance_status === 'Lagging Behind' ? 'lagging' : 'na';
       const trackClass = l.track === 'Cybersecurity' ? 'cs' : 'da';
       const scoreHtml = renderScore(l.lms_overall_score);
-      const activatedHtml = l.is_enrollment_activated
-        ? '<span style="color: var(--status-healthy); font-weight: 600;">Activated</span>'
-        : '<span style="color: var(--text-muted);">Pending</span>';
 
       return `
         <tr>
@@ -652,11 +687,15 @@
           </td>
           <td>${scoreHtml}</td>
           <td>
-            <span class="status-pill-badge ${healthClass}">
-              <span class="status-badge-dot"></span>${l.unified_health}
+            <span class="status-pill-badge ${actBadgeClass}">
+              <span class="status-badge-dot"></span>${l.activation_status}
             </span>
           </td>
-          <td>${activatedHtml}</td>
+          <td>
+            <span class="status-pill-badge ${perfBadgeClass}">
+              <span class="status-badge-dot"></span>${l.performance_status}
+            </span>
+          </td>
           <td style="color: var(--text-sub); font-size: 11px;">${l.last_submission_date || '-'}</td>
         </tr>
       `;
@@ -682,7 +721,7 @@
       return;
     }
 
-    let html = `<button ${currentPage === 1 ? 'disabled' : ''} data-page="${currentPage - 1}">‹</button>`;
+    let html = `<button ${currentPage === 1 ? 'disabled' : ''} data-page="${currentPage - 1}" aria-label="Previous page">‹</button>`;
 
     const maxButtons = 7;
     let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
@@ -695,7 +734,7 @@
       html += `<button class="${i === currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`;
     }
 
-    html += `<button ${currentPage === totalPages ? 'disabled' : ''} data-page="${currentPage + 1}">›</button>`;
+    html += `<button ${currentPage === totalPages ? 'disabled' : ''} data-page="${currentPage + 1}" aria-label="Next page">›</button>`;
 
     pag.innerHTML = html;
 
@@ -709,19 +748,9 @@
     });
   }
 
-  function getHealthClass(health) {
-    switch (health) {
-      case 'Healthy / On-Track': return 'healthy';
-      case 'Needs Support': return 'support';
-      case 'At Risk': return 'risk';
-      case 'Un-onboarded / Inactive': return 'inactive';
-      default: return 'inactive';
-    }
-  }
-
   function renderScore(score) {
     if (score == null) return '<span style="color: var(--text-muted);">-</span>';
-    const color = score >= 70 ? 'var(--color-healthy)' : score >= 40 ? 'var(--color-support)' : 'var(--color-risk)';
+    const color = score >= 70 ? 'var(--status-activated)' : score >= 40 ? 'var(--status-lagging)' : 'var(--status-not-activated)';
     return `
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="font-weight: 600; width: 36px;">${score}%</span>
@@ -734,15 +763,15 @@
 
   // CSV Export
   function exportCSV() {
-    const headers = ['Name', 'Track', 'Email', 'Phone', 'LMS Score', 'Health Status', 'Activated', 'Last Active', 'Sponsorship'];
+    const headers = ['Name', 'Track', 'Email', 'Phone', 'LMS Score', 'Activation Status', 'Performance Status', 'Last Active', 'Sponsorship'];
     const rows = filteredLearners.map(l => [
       l.full_name,
       l.track,
       l.email,
       l.phone || '',
       l.lms_overall_score != null ? `${l.lms_overall_score}%` : '',
-      l.unified_health,
-      l.is_enrollment_activated ? 'Yes' : 'No',
+      l.activation_status,
+      l.performance_status,
       l.last_submission_date || '',
       l.is_un_sponsored ? 'UN Women' : 'Other',
     ]);
@@ -761,16 +790,21 @@
     URL.revokeObjectURL(url);
   }
 
-  // Mode Switching (View vs Admin)
+  // Mode Switching & Admin Auth Modal
   function setupModeSwitch() {
     const viewBtn = document.getElementById('viewModeBtn');
     const adminBtn = document.getElementById('adminModeBtn');
-    const adminBanner = document.getElementById('adminBanner');
     const resetBtn = document.getElementById('resetDataBtn');
 
     if (viewBtn && adminBtn) {
       viewBtn.addEventListener('click', () => setAdminMode(false));
-      adminBtn.addEventListener('click', () => setAdminMode(true));
+      adminBtn.addEventListener('click', () => {
+        if (sessionStorage.getItem('admin_authenticated') === 'true') {
+          setAdminMode(true);
+        } else {
+          showAdminLoginModal();
+        }
+      });
     }
 
     if (resetBtn) {
@@ -782,6 +816,66 @@
           showStatus('Dashboard reset to default data source', 'info');
         }
       });
+    }
+  }
+
+  function setupAdminLoginModal() {
+    const modal = document.getElementById('adminLoginModal');
+    const closeBtn = document.getElementById('loginModalClose');
+    const cancelBtn = document.getElementById('loginCancelBtn');
+    const submitBtn = document.getElementById('loginSubmitBtn');
+    const usernameInput = document.getElementById('adminUsername');
+    const passwordInput = document.getElementById('adminPassword');
+    const errorEl = document.getElementById('loginError');
+
+    if (!modal) return;
+
+    function hideModal() {
+      modal.classList.add('hidden');
+      if (errorEl) errorEl.classList.add('hidden');
+      if (usernameInput) usernameInput.value = '';
+      if (passwordInput) passwordInput.value = '';
+    }
+
+    function attemptLogin() {
+      const u = (usernameInput?.value || '').trim();
+      const p = (passwordInput?.value || '').trim();
+
+      if (u === ADMIN_CREDS.user && p === ADMIN_CREDS.pass) {
+        sessionStorage.setItem('admin_authenticated', 'true');
+        hideModal();
+        setAdminMode(true);
+      } else {
+        if (errorEl) {
+          errorEl.textContent = 'Invalid username or password.';
+          errorEl.classList.remove('hidden');
+        }
+      }
+    }
+
+    if (closeBtn) closeBtn.addEventListener('click', hideModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', hideModal);
+    if (submitBtn) submitBtn.addEventListener('click', attemptLogin);
+
+    [usernameInput, passwordInput].forEach(input => {
+      if (input) {
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') attemptLogin();
+        });
+      }
+    });
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) hideModal();
+    });
+  }
+
+  function showAdminLoginModal() {
+    const modal = document.getElementById('adminLoginModal');
+    const usernameInput = document.getElementById('adminUsername');
+    if (modal) {
+      modal.classList.remove('hidden');
+      setTimeout(() => usernameInput?.focus(), 100);
     }
   }
 
@@ -880,8 +974,12 @@
         const email = String(row['Email'] || '').trim().toLowerCase();
         if (!email) return;
 
-        const rawHealth = String(row['Learner classification status'] || '').trim();
-        const unifiedHealth = HEALTH_MAP_CS[rawHealth] || 'Un-onboarded / Inactive';
+        const lmsScore = row['LMS overall score'] != null ? Math.round(parseFloat(row['LMS overall score']) * 10) / 10 : null;
+        const activationStatus = (lmsScore != null && lmsScore > 0) ? 'Activated' : 'Not Activated';
+        let performanceStatus = 'N/A';
+        if (activationStatus === 'Activated' && lmsScore != null) {
+          performanceStatus = lmsScore > 50 ? 'On Track' : 'Lagging Behind';
+        }
 
         if (!csLearnerMap.has(email)) {
           csLearnerMap.set(email, {
@@ -894,15 +992,16 @@
             has_lms_login: String(row['Has logged into LMS'] || '').toLowerCase() === 'yes',
             has_ehub_login: String(row['Has logged into ehub'] || '').toLowerCase() === 'yes',
             is_enrollment_activated: String(row['Is enrollment activated'] || '').toLowerCase() === 'yes',
-            lms_overall_score: row['LMS overall score'] != null ? Math.round(parseFloat(row['LMS overall score']) * 10) / 10 : null,
+            lms_overall_score: lmsScore,
             num_assignments_total: parseInt(row['No. of assignments'] || 0, 10),
             num_submissions: parseInt(row['No. of submissions'] || 0, 10),
             num_passed: parseInt(row['No. of assignment passed'] || 0, 10),
             assignments_accessed: 1,
             assignments_submitted: String(row['Is assignment submitted'] || '').toLowerCase() === 'yes' ? 1 : 0,
             assignments_passed: String(row['Is assignment passed'] || '').toLowerCase() === 'yes' ? 1 : 0,
-            unified_health: unifiedHealth,
-            raw_health: rawHealth,
+            activation_status: activationStatus,
+            performance_status: performanceStatus,
+            raw_health: String(row['Learner classification status'] || '').trim(),
             payment_status: 'UN Women Sponsored',
             is_un_sponsored: true,
             is_graduated: String(row['Is graduated on savannah'] || '').toLowerCase() === 'yes',
@@ -929,8 +1028,18 @@
         const email = String(row['Email'] || '').trim().toLowerCase();
         if (!email) return;
 
-        const rawHealth = String(row['Learner health classification'] || '').trim();
-        const unifiedHealth = HEALTH_MAP_DA[rawHealth] || 'Un-onboarded / Inactive';
+        const isEA = String(row['Is enrollment activated'] || '').toLowerCase() === 'yes';
+        const courseStatus = String(row['Course status (LMS)'] || '').trim().toLowerCase();
+        const ehubClass = String(row['eHub class name'] || '').trim();
+        const numSubmissions = parseInt(row['No. of submissions'] || 0, 10);
+
+        const activationStatus = (isEA && courseStatus === 'validated') ? 'Activated' : isEA ? 'Activated' : 'Not Activated';
+        let performanceStatus = 'N/A';
+        if (activationStatus === 'Activated') {
+          if (numSubmissions >= 3 && ehubClass === 'DA-3_rolling') performanceStatus = 'On Track';
+          else if (numSubmissions >= 3) performanceStatus = 'On Track';
+          else performanceStatus = 'Lagging Behind';
+        }
 
         if (!daLearnerMap.has(email)) {
           daLearnerMap.set(email, {
@@ -942,16 +1051,17 @@
             cohort: '',
             has_lms_login: String(row['Has logged into LMS'] || '').toLowerCase() === 'yes',
             has_ehub_login: String(row['Has logged into eHub'] || '').toLowerCase() === 'yes',
-            is_enrollment_activated: String(row['Is enrollment activated'] || '').toLowerCase() === 'yes',
+            is_enrollment_activated: isEA,
             lms_overall_score: null,
             num_assignments_total: 0,
-            num_submissions: 0,
+            num_submissions: numSubmissions,
             num_passed: 0,
             assignments_accessed: 0,
-            assignments_submitted: 0,
+            assignments_submitted: numSubmissions,
             assignments_passed: 0,
-            unified_health: unifiedHealth,
-            raw_health: rawHealth,
+            activation_status: activationStatus,
+            performance_status: performanceStatus,
+            raw_health: String(row['Learner health classification'] || '').trim(),
             payment_status: 'UN Women Sponsored',
             is_un_sponsored: true,
             is_graduated: String(row['Is graduated on savannah'] || '').toLowerCase() === 'yes',
@@ -973,14 +1083,13 @@
       total_registered: un.length,
       cs_registered: un.filter(l => l.track === 'Cybersecurity').length,
       da_registered: un.filter(l => l.track === 'Data Analytics').length,
-      total_lms_login: un.filter(l => l.has_lms_login).length,
-      total_activated: un.filter(l => l.is_enrollment_activated).length,
-      total_submitted: un.filter(l => l.assignments_submitted > 0).length,
+      total_lms_onboarded: un.filter(l => l.has_lms_login).length,
+      total_activated: un.filter(l => l.activation_status === 'Activated').length,
+      total_not_activated: un.filter(l => l.activation_status === 'Not Activated').length,
+      total_on_track: un.filter(l => l.performance_status === 'On Track').length,
+      total_lagging_behind: un.filter(l => l.performance_status === 'Lagging Behind').length,
+      total_performance_na: un.filter(l => l.performance_status === 'N/A').length,
       total_graduated: un.filter(l => l.is_graduated).length,
-      total_healthy: un.filter(l => l.unified_health === 'Healthy / On-Track').length,
-      total_needs_support: un.filter(l => l.unified_health === 'Needs Support').length,
-      total_at_risk: un.filter(l => l.unified_health === 'At Risk').length,
-      total_unonboarded: un.filter(l => l.unified_health === 'Un-onboarded / Inactive').length,
     };
     DATA.generated_at = new Date().toISOString();
   }
@@ -1023,11 +1132,6 @@
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
-  }
-
-  function truncate(str, len) {
-    if (!str) return '';
-    return str.length > len ? str.substring(0, len) + '...' : str;
   }
 
 })();

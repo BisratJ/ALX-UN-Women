@@ -1,0 +1,37 @@
+======================================================================
+  ALX x UN Women - Data Validation Report
+  Generated: 2026-07-26T13:37:56.800123
+======================================================================
+
+--- Summary Statistics ---
+  CS Registered (raw): 191
+  CS Registered (clean): 186
+  CS Tracker rows: 4968
+  CS Tracker unique emails: 216
+  DA Registered (raw): 325
+  DA Registered (clean): 325
+  DA Tracker rows: 1309
+  DA Tracker unique emails: 317
+  CS Learners (final): 186
+  DA Learners (final): 325
+  Total UN Learners: 511
+  CS Learners: 186
+  DA Learners: 325
+  LMS Onboarded: 331
+  Activated: 50
+  Not Activated: 461
+  On Track: 22
+  Lagging Behind: 28
+  Graduated: 12
+
+--- Findings (8) ---
+  [CS-REG] 5 duplicate emails removed from registered list
+  [CS-REG-DUPE] Duplicate: mahletfekadewold@gmail.com (Mahlet fekadewold)
+  [CS-REG-DUPE] Duplicate: mekdelawitwondesen77@gmail.com (Mekdelawit Wondesen)
+  [CS-REG-DUPE] Duplicate: nebathussen989@gmail.com (Nebat Hussen Yimam)
+  [CS-REG-DUPE] Duplicate: tigistn215@gmail.com (Tigist Nigussie)
+  [CS-REG-DUPE] Duplicate: kasechkibebew806@gmail.com (Kasech kibebew)
+  [CS-MATCH] 111 registered learners not found in tracker
+  [DA-MATCH] 10 registered learners not found in tracker
+
+======================================================================
