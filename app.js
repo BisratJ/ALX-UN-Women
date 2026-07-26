@@ -114,31 +114,27 @@
   });
 
   async function loadData() {
-    // Performance optimization: Instant render from cached data if available
-    const cached = localStorage.getItem('alx_unwomen_custom_data');
-    if (cached) {
-      try {
-        DATA = JSON.parse(cached);
-        renderDashboard();
-        hideLoading();
-      } catch (e) {
-        console.warn('Failed to parse cached data, fetching data.json...');
-      }
-    }
-
     try {
-      const response = await fetch('data.json');
+      const response = await fetch(`data.json?t=${Date.now()}`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       DEFAULT_DATA = await response.json();
 
-      if (!DATA) {
-        DATA = DEFAULT_DATA;
-        ensureInitialSnapshot();
-        renderDashboard();
-        hideLoading();
+      const cached = localStorage.getItem('alx_unwomen_custom_data');
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          // If cached data exists and is valid, use it; otherwise fallback to DEFAULT_DATA
+          DATA = parsed && parsed.learners ? parsed : DEFAULT_DATA;
+        } catch (e) {
+          DATA = DEFAULT_DATA;
+        }
       } else {
-        ensureInitialSnapshot();
+        DATA = DEFAULT_DATA;
       }
+
+      ensureInitialSnapshot();
+      renderDashboard();
+      hideLoading();
     } catch (err) {
       console.error('Failed to load data.json:', err);
       if (!DATA) {
