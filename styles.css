@@ -352,8 +352,33 @@ body {
 }
 
 .theme-toggle-btn:hover {
+  background: var(--bg-card-hover);
   border-color: var(--border-card-hover);
   color: var(--text-main);
+}
+
+/* Hamburger Toggle Button & Mobile Navigation Menu */
+.hamburger-toggle-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.hamburger-toggle-btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-card-hover);
+}
+
+.mobile-nav-menu {
+  display: none;
 }
 
 /* Section Headings */
@@ -1346,14 +1371,151 @@ select:focus-visible {
 }
 
 @media (max-width: 768px) {
+  .top-header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+  }
+
   .header-container {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    gap: 12px;
+  }
+
+  .brand-group {
+    gap: 10px;
+  }
+
+  .alx-logo-img,
+  .un-women-logo-img {
+    height: 24px;
+  }
+
+  .brand-divider {
+    height: 16px;
+  }
+
+  /* Hide desktop-only navigation controls on mobile top bar */
+  #headerVersionPill,
+  .status-pill,
+  .mode-switch-container {
+    display: none !important;
+  }
+
+  /* Show Theme Toggle & Hamburger button side-by-side on mobile top bar */
+  .header-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+
+  .theme-toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+  }
+
+  .hamburger-toggle-btn {
+    display: flex;
+  }
+
+  /* Mobile Dropdown / Drawer Navigation Menu */
+  .mobile-nav-menu:not(.hidden) {
+    display: block !important;
+  }
+
+  .mobile-nav-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-card);
+    padding: 14px 16px;
+    box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.45);
+    z-index: 999;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    animation: slideDownMobileNav 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .mobile-nav-container {
+    display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    gap: 12px;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .mobile-version-pill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 8px 16px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .mobile-nav-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .mobile-mode-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 11px 16px;
+    border-radius: var(--radius-md);
+    background: var(--bg-input);
+    border: 1px solid var(--border-card);
+    color: var(--text-sub);
+    font-family: var(--font-main);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .mobile-mode-btn:hover {
+    color: var(--text-main);
+    background: var(--bg-card-hover);
+  }
+
+  .mobile-mode-btn.active {
+    background: var(--bg-card-hover);
+    border-color: var(--accent-primary);
+    color: var(--text-main);
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   }
   
   .filter-toolbar {
     flex-direction: column;
     align-items: stretch;
+  }
+}
+
+@keyframes slideDownMobileNav {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -1370,15 +1532,6 @@ select:focus-visible {
 
   .kpi-value-num {
     font-size: 22px;
-  }
-
-  .header-controls {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .status-pill {
-    display: none;
   }
 
   .chart-layout-flex {

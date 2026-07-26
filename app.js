@@ -108,6 +108,7 @@
     loadData();
     setupThemeToggle();
     setupModeSwitch();
+    setupMobileNav();
     setupDropzone();
     setupAdminLoginModal();
     setupVersionHistoryModal();
@@ -191,6 +192,9 @@
     const versionTag = DATA.version || 'v1.0';
     const versionLabel = document.getElementById('versionLabel');
     if (versionLabel) versionLabel.textContent = `${versionTag} · Live Dataset`;
+
+    const mobileVersionLabel = document.getElementById('mobileVersionLabel');
+    if (mobileVersionLabel) mobileVersionLabel.textContent = `${versionTag} · Live Dataset`;
 
     const curVerTag = document.getElementById('currentVersionTag');
     if (curVerTag) curVerTag.textContent = `${versionTag} · Live Dataset`;
@@ -859,23 +863,33 @@
     URL.revokeObjectURL(url);
   }
 
-  // Mode Switching & Admin Auth Modal
+  // Mode Switching & Mobile Navigation
   function setupModeSwitch() {
     const viewBtn = document.getElementById('viewModeBtn');
     const adminBtn = document.getElementById('adminModeBtn');
+    const mobileViewBtn = document.getElementById('mobileViewModeBtn');
+    const mobileAdminBtn = document.getElementById('mobileAdminModeBtn');
     const resetBtn = document.getElementById('resetDataBtn');
     const openVerBtn = document.getElementById('openVersionModalBtn');
 
-    if (viewBtn && adminBtn) {
-      viewBtn.addEventListener('click', () => setAdminMode(false));
-      adminBtn.addEventListener('click', () => {
-        if (sessionStorage.getItem('admin_authenticated') === 'true') {
-          setAdminMode(true);
-        } else {
-          showAdminLoginModal();
-        }
-      });
+    function handleViewClick() {
+      setAdminMode(false);
+      closeMobileNav();
     }
+
+    function handleAdminClick() {
+      if (sessionStorage.getItem('admin_authenticated') === 'true') {
+        setAdminMode(true);
+      } else {
+        showAdminLoginModal();
+      }
+      closeMobileNav();
+    }
+
+    if (viewBtn) viewBtn.addEventListener('click', handleViewClick);
+    if (adminBtn) adminBtn.addEventListener('click', handleAdminClick);
+    if (mobileViewBtn) mobileViewBtn.addEventListener('click', handleViewClick);
+    if (mobileAdminBtn) mobileAdminBtn.addEventListener('click', handleAdminClick);
 
     if (openVerBtn) {
       openVerBtn.addEventListener('click', () => showVersionHistoryModal());
@@ -892,6 +906,60 @@
         }
       });
     }
+  }
+
+  function closeMobileNav() {
+    const menu = document.getElementById('mobileNavMenu');
+    const toggleBtn = document.getElementById('hamburgerToggleBtn');
+    if (!menu) return;
+    menu.classList.add('hidden');
+    if (toggleBtn) {
+      toggleBtn.setAttribute('aria-expanded', 'false');
+      toggleBtn.querySelector('.hamburger-icon-open')?.classList.remove('hidden');
+      toggleBtn.querySelector('.hamburger-icon-close')?.classList.add('hidden');
+    }
+  }
+
+  function setupMobileNav() {
+    const toggleBtn = document.getElementById('hamburgerToggleBtn');
+    const menu = document.getElementById('mobileNavMenu');
+    const mobileVersionPill = document.getElementById('mobileHeaderVersionPill');
+    if (!toggleBtn || !menu) return;
+
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isHidden = menu.classList.contains('hidden');
+      if (isHidden) {
+        menu.classList.remove('hidden');
+        toggleBtn.setAttribute('aria-expanded', 'true');
+        toggleBtn.querySelector('.hamburger-icon-open')?.classList.add('hidden');
+        toggleBtn.querySelector('.hamburger-icon-close')?.classList.remove('hidden');
+      } else {
+        closeMobileNav();
+      }
+    });
+
+    if (mobileVersionPill) {
+      mobileVersionPill.addEventListener('click', () => {
+        showVersionHistoryModal();
+        closeMobileNav();
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      if (!menu.classList.contains('hidden')) {
+        const header = document.querySelector('.top-header');
+        if (header && !header.contains(e.target)) {
+          closeMobileNav();
+        }
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 768) {
+        closeMobileNav();
+      }
+    });
   }
 
   function setupAdminLoginModal() {
@@ -957,16 +1025,22 @@
   function setAdminMode(isAdmin) {
     const viewBtn = document.getElementById('viewModeBtn');
     const adminBtn = document.getElementById('adminModeBtn');
+    const mobileViewBtn = document.getElementById('mobileViewModeBtn');
+    const mobileAdminBtn = document.getElementById('mobileAdminModeBtn');
     const adminBanner = document.getElementById('adminBanner');
 
     if (isAdmin) {
       viewBtn?.classList.remove('active');
+      mobileViewBtn?.classList.remove('active');
       adminBtn?.classList.add('active');
+      mobileAdminBtn?.classList.add('active');
       adminBanner?.classList.remove('hidden');
       adminBanner?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else {
       adminBtn?.classList.remove('active');
+      mobileAdminBtn?.classList.remove('active');
       viewBtn?.classList.add('active');
+      mobileViewBtn?.classList.add('active');
       adminBanner?.classList.add('hidden');
     }
   }
