@@ -1846,3 +1846,165 @@ select:focus-visible {
 .chip {
   will-change: transform, opacity;
 }
+
+/* Dual Upload Dropzone Grid */
+.dual-dropzone-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+@media (max-width: 768px) {
+  .dual-dropzone-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dropzone-slot {
+  background: var(--bg-card);
+  border: 2px dashed var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.dropzone-slot.dragover {
+  border-color: var(--accent-primary);
+  background: var(--bg-card-hover);
+}
+
+.dropzone-slot.valid-loaded {
+  border-style: solid;
+  border-color: var(--status-activated);
+  background: rgba(74, 222, 128, 0.05);
+}
+
+.dropzone-slot.invalid-error {
+  border-style: solid;
+  border-color: var(--status-not-activated);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.slot-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.slot-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  color: #FFF;
+}
+
+.cs-badge {
+  background: #3B82F6;
+}
+
+.da-badge {
+  background: #8B5CF6;
+}
+
+.slot-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.slot-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 12px 8px;
+}
+
+.drop-icon-wrapper.small {
+  width: 44px;
+  height: 44px;
+  margin-bottom: 8px;
+}
+
+.slot-file-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-main);
+  word-break: break-all;
+}
+
+.slot-status-text {
+  font-size: 11px;
+  color: var(--text-sub);
+  margin-top: 4px;
+}
+
+/* Program Toolbar Switcher */
+.program-toolbar-block {
+  margin-bottom: 20px;
+}
+
+.program-toolbar-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 10px 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.program-toolbar-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-sub);
+  white-space: nowrap;
+}
+
+.program-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* WoW Section Cards */
+.wow-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-xl);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.track-tag.cs {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3B82F6;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.track-tag.da {
+  background: rgba(139, 92, 246, 0.15);
+  color: #8B5CF6;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.status-pill-badge.off-track {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--status-lagging);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.status-pill-badge.off-track .status-badge-dot {
+  background: var(--status-lagging);
+}
+

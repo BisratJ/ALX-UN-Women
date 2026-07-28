@@ -1,57 +1,52 @@
 /**
- * ALX Enterprise x UN Women: Learner Operations & Analytics Dashboard Logic (v2.1)
+ * ALX Enterprise x UN Women: Learner Operations & Analytics Dashboard Logic (v2.2)
  * ==========================================================================
- * - Content-Based Excel Program Detection (CS / DA auto-identification)
- * - Snapshot-based Dataset Versioning & Historical Version Control
- * - 2-Axis Learner Classification (Activation x Performance)
- * - Refined Learner Journey Funnel & Full-Width Methodology Layout
- * - Optimized DOM rendering (DocumentFragment, instant cache load, debouncing)
+ * - Dual CSV Upload Workflow (CS & DA Summary CSV Ingestion)
+ * - Atomic File Validation & Strict Schema Enforcement
+ * - Week-over-Week (WoW) Historical Snapshot & Persistence Engine
+ * - Dynamic Program Filtering (Combined / CS / DA Views)
+ * - Accessible, High-Performance UI (DocumentFragment rendering, Chart.js, Motion)
  */
 
 (function () {
   'use strict';
 
-  // State
-  let DEFAULT_DATA = null;
-  let DATA = null;
+  // Storage Keys
+  const STORAGE_CUSTOM_DATA = 'alx_unwomen_custom_data_v2';
+  const STORAGE_SNAPSHOTS = 'alx_unwomen_snapshots_v2';
+
+  // Global Dashboard State
+  let DATA = null; // Active dataset object
   let filteredLearners = [];
   let currentPage = 1;
   const PAGE_SIZE = 25;
 
-  let sortColumn = 'activation_status';
-  let sortDirection = 'asc';
-
+  let activeProgramView = 'all'; // 'all', 'cs', 'da'
   let activeActivationFilter = '';
   let activePerformanceFilter = '';
   let activeTrackFilter = '';
-  let activeTimeFilter = '';
-  let activeFunnelTrack = 'all';
+
+  let sortColumn = 'email';
+  let sortDirection = 'asc';
 
   let healthChartInstance = null;
+  let wowTrendChartInstance = null;
+  let wowProgramChartInstance = null;
   let searchDebounceTimer = null;
 
-  // Activation & Performance Sort Priority
-  const ACTIVATION_SORT_ORDER = {
-    'Not Activated': 0,
-    'Activated': 1,
-  };
+  // Staged Upload Slots State
+  let stagedCS = null; // { filename, rows }
+  let stagedDA = null; // { filename, rows }
 
-  const PERFORMANCE_SORT_ORDER = {
-    'Lagging Behind': 0,
-    'On Track': 1,
-    'N/A': 2,
-  };
-
-  // Static Admin Credentials
+  // Admin Authentication State
   const ADMIN_CREDS = {
     user: 'admin',
     pass: 'alx-unwomen@2026',
   };
 
-  // SVG Icons Registry (Strictly vector SVGs, no emojis)
+  // SVG Icons Registry
   const ICONS = {
     target: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
-    key: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>`,
     zap: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
     check: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
     alert: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
@@ -60,7 +55,7 @@
     sun: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M18.36 5.64l1.41-1.41"/></svg>`,
   };
 
-  // Motion One Animation Helpers
+  // Motion Animation Helper Wrappers
   const Motion = (() => {
     const lib = window.Motion || null;
     const animate = lib ? lib.animate : null;
@@ -102,57 +97,45 @@
     return { fadeUp, slideDown, springIn, available: !!animate };
   })();
 
-  // Initialization
+  // DOM Initialization
   document.addEventListener('DOMContentLoaded', () => {
     Motion.slideDown('.top-header');
-    loadData();
     setupThemeToggle();
     setupModeSwitch();
     setupMobileNav();
-    setupDropzone();
+    setupDualUpload();
+    setupProgramTabs();
     setupAdminLoginModal();
     setupVersionHistoryModal();
+
+    // Load active data from localStorage or show initial state
+    loadActiveDataset();
   });
 
-  async function loadData() {
+  // =========================================================================
+  // DATA LOADING & PERSISTENCE
+  // =========================================================================
+
+  function loadActiveDataset() {
     try {
-      const response = await fetch(`data.json?t=${Date.now()}`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      DEFAULT_DATA = await response.json();
-
-      const cached = localStorage.getItem('alx_unwomen_custom_data');
+      const cached = localStorage.getItem(STORAGE_CUSTOM_DATA);
       if (cached) {
-        try {
-          const parsed = JSON.parse(cached);
-          // If cached data exists and is valid, use it; otherwise fallback to DEFAULT_DATA
-          DATA = parsed && parsed.learners ? parsed : DEFAULT_DATA;
-        } catch (e) {
-          DATA = DEFAULT_DATA;
-        }
-      } else {
-        DATA = DEFAULT_DATA;
+        DATA = JSON.parse(cached);
       }
-
-      ensureInitialSnapshot();
-      renderDashboard();
-      hideLoading();
-    } catch (err) {
-      console.error('Failed to load data.json:', err);
-      if (!DATA) {
-        const overlay = document.getElementById('loadingOverlay');
-        if (overlay) {
-          overlay.innerHTML = `
-            <div class="empty-state">
-              <div class="empty-icon" style="color: var(--text-sub);">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              </div>
-              <div class="empty-title" style="margin-top: 10px;">Failed to load dashboard data</div>
-              <div class="empty-desc">Ensure data.json exists in workspace directory. Run: python3 clean_data.py</div>
-            </div>
-          `;
-        }
-      }
+    } catch (e) {
+      console.warn('Failed to parse cached dataset from localStorage', e);
     }
+
+    // Auto-fill Week Label input default if blank
+    const weekInput = document.getElementById('weekLabelInput');
+    if (weekInput && !weekInput.value) {
+      const today = new Date().toISOString().slice(0, 10);
+      const snaps = getSnapshots();
+      weekInput.value = `Week ${snaps.length + 1} - ${today}`;
+    }
+
+    renderDashboard();
+    hideLoading();
   }
 
   function hideLoading() {
@@ -168,14 +151,22 @@
     renderKPIs();
     renderFunnels();
     renderHealthChart();
+    renderWoWCharts();
     setupTable();
     setTimeout(() => {
       Motion.fadeUp('.section-block', { stagger: 0.08, duration: 0.4 });
     }, 50);
   }
 
-  // Timestamp, Version Labels & Badges
   function renderTimestamp() {
+    if (!DATA) {
+      const versionLabel = document.getElementById('versionLabel');
+      if (versionLabel) versionLabel.textContent = 'No Data Loaded';
+      const mobileVersionLabel = document.getElementById('mobileVersionLabel');
+      if (mobileVersionLabel) mobileVersionLabel.textContent = 'No Data Loaded';
+      return;
+    }
+
     const ts = DATA.generated_at || new Date().toISOString();
     const date = new Date(ts);
     const formatted = date.toLocaleDateString('en-US', {
@@ -189,58 +180,70 @@
     const footerTs = document.getElementById('footerTimestamp');
     if (footerTs) footerTs.textContent = formatted;
 
-    const versionTag = DATA.version || 'v1.0';
+    const versionTag = DATA.week_label || DATA.version || 'v1.0';
     const versionLabel = document.getElementById('versionLabel');
-    if (versionLabel) versionLabel.textContent = `${versionTag} · Live Dataset`;
+    if (versionLabel) versionLabel.textContent = `${versionTag}`;
 
     const mobileVersionLabel = document.getElementById('mobileVersionLabel');
-    if (mobileVersionLabel) mobileVersionLabel.textContent = `${versionTag} · Live Dataset`;
+    if (mobileVersionLabel) mobileVersionLabel.textContent = `${versionTag}`;
 
     const curVerTag = document.getElementById('currentVersionTag');
-    if (curVerTag) curVerTag.textContent = `${versionTag} · Live Dataset`;
+    if (curVerTag) curVerTag.textContent = `${versionTag}`;
 
     const curVerTime = document.getElementById('currentVersionTime');
     if (curVerTime) curVerTime.textContent = formatted;
 
+    const kpiData = getActiveKpiData();
     const totalBadge = document.getElementById('totalLearnersBadge');
-    if (totalBadge && DATA.kpis) totalBadge.textContent = DATA.kpis.total_registered || 511;
+    if (totalBadge) totalBadge.textContent = kpiData.total_registered || 0;
   }
 
-  // KPI Cards Grid (Revised 6 KPIs)
-  function renderKPIs() {
-    const k = DATA.kpis;
-    const reg = k.total_registered || 1;
+  // Get KPIs based on currently selected Program View ('all', 'cs', 'da')
+  function getActiveKpiData() {
+    if (!DATA || !DATA.kpis) {
+      return {
+        total_registered: 0,
+        total_activated: 0,
+        total_not_activated: 0,
+        total_on_track: 0,
+        total_off_track: 0,
+        activation_rate: 0,
+        on_track_rate: 0
+      };
+    }
 
-    const onboardingRate = ((k.total_lms_onboarded / reg) * 100).toFixed(1);
-    const activationRate = ((k.total_activated / reg) * 100).toFixed(1);
-    const onTrackRate = ((k.total_on_track / reg) * 100).toFixed(1);
-    const notActivatedRate = ((k.total_not_activated / reg) * 100).toFixed(1);
-    const laggingRate = ((k.total_lagging_behind / reg) * 100).toFixed(1);
+    if (activeProgramView === 'cs' && DATA.kpis.cs) return DATA.kpis.cs;
+    if (activeProgramView === 'da' && DATA.kpis.da) return DATA.kpis.da;
+    return DATA.kpis.combined || DATA.kpis;
+  }
+
+  // =========================================================================
+  // DYNAMIC DASHBOARD RENDERERS
+  // =========================================================================
+
+  function renderKPIs() {
+    const k = getActiveKpiData();
+    const reg = k.total_registered || 0;
+
+    const activationRate = reg > 0 ? ((k.total_activated / reg) * 100).toFixed(1) : '0.0';
+    const onTrackRate = reg > 0 ? ((k.total_on_track / reg) * 100).toFixed(1) : '0.0';
+    const notActivatedRate = reg > 0 ? ((k.total_not_activated / reg) * 100).toFixed(1) : '0.0';
+    const offTrackRate = reg > 0 ? ((k.total_off_track / reg) * 100).toFixed(1) : '0.0';
 
     const kpis = [
       {
-        id: 'kpi-seats',
-        label: 'UN Sponsored Seats',
-        value: k.total_un_seats,
-        detail: `${k.total_registered} scholars registered`,
+        id: 'kpi-registered',
+        label: 'Total Registered Scholars',
+        value: k.total_registered,
+        detail: `${activeProgramView.toUpperCase()} cohort size`,
         color: 'blue',
         icon: ICONS.target,
         filterActivation: '',
         filterPerformance: '',
       },
       {
-        id: 'kpi-onboarded',
-        label: 'LMS Onboarded',
-        value: k.total_lms_onboarded,
-        detail: `${onboardingRate}% onboarding rate`,
-        color: 'blue',
-        icon: ICONS.key,
-        filterActivation: '',
-        filterPerformance: '',
-      },
-      {
         id: 'kpi-activated',
-        label: 'Activated',
+        label: 'Activated Scholars',
         value: k.total_activated,
         detail: `${activationRate}% activation rate`,
         color: 'green',
@@ -250,9 +253,9 @@
       },
       {
         id: 'kpi-ontrack',
-        label: 'On Track',
+        label: 'On Track Scholars',
         value: k.total_on_track,
-        detail: `${onTrackRate}% meeting targets`,
+        detail: `${onTrackRate}% meeting milestone targets`,
         color: 'blue',
         icon: ICONS.check,
         filterActivation: '',
@@ -269,14 +272,14 @@
         filterPerformance: '',
       },
       {
-        id: 'kpi-lagging',
-        label: 'Lagging Behind',
-        value: k.total_lagging_behind,
-        detail: `${laggingRate}% outreach targets`,
+        id: 'kpi-offtrack',
+        label: 'Off Track',
+        value: k.total_off_track,
+        detail: `${offTrackRate}% requiring intervention`,
         color: 'orange',
         icon: ICONS.alert,
         filterActivation: '',
-        filterPerformance: 'Lagging Behind',
+        filterPerformance: 'Off Track',
       },
     ];
 
@@ -289,7 +292,7 @@
           <span class="kpi-title-label">${kpi.label}</span>
           <div class="kpi-icon-bubble">${kpi.icon}</div>
         </div>
-        <div class="kpi-value-num" data-target="${kpi.value}">0</div>
+        <div class="kpi-value-num" data-target="${kpi.value}">${kpi.value}</div>
         <div class="kpi-foot-detail">${kpi.detail}</div>
       </div>
     `).join('');
@@ -317,7 +320,7 @@
   function animateCounters() {
     document.querySelectorAll('.kpi-value-num[data-target]').forEach(el => {
       const target = parseInt(el.dataset.target, 10) || 0;
-      const duration = 800;
+      const duration = 600;
       const start = performance.now();
 
       function step(now) {
@@ -332,64 +335,21 @@
     });
   }
 
-  // Refined Funnel Analytics (Generous Spacing & Conversion Rates)
   function renderFunnels() {
     const funnelDisplay = document.getElementById('funnelDisplay');
-    const trackTabs = document.getElementById('funnelTrackTabs');
     if (!funnelDisplay) return;
 
-    if (trackTabs) {
-      trackTabs.querySelectorAll('.pill-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-          trackTabs.querySelectorAll('.pill-tab').forEach(t => {
-            t.classList.remove('active');
-            t.setAttribute('aria-selected', 'false');
-          });
-          tab.classList.add('active');
-          tab.setAttribute('aria-selected', 'true');
-          activeFunnelTrack = tab.dataset.track;
-          renderFunnelContent();
-        });
-      });
-    }
-
-    renderFunnelContent();
-  }
-
-  function renderFunnelContent() {
-    const funnelDisplay = document.getElementById('funnelDisplay');
-    if (!funnelDisplay) return;
-
-    let funnelData = { un_sponsored_seats: 0, lms_onboarded: 0, activated: 0, on_track: 0, not_activated: 0, lagging_behind: 0 };
-
-    if (activeFunnelTrack === 'cs') {
-      funnelData = DATA.funnels.cs || funnelData;
-    } else if (activeFunnelTrack === 'da') {
-      funnelData = DATA.funnels.da || funnelData;
-    } else {
-      const cs = DATA.funnels.cs || {};
-      const da = DATA.funnels.da || {};
-      funnelData = {
-        un_sponsored_seats: (cs.un_sponsored_seats || 0) + (da.un_sponsored_seats || 0),
-        lms_onboarded: (cs.lms_onboarded || 0) + (da.lms_onboarded || 0),
-        activated: (cs.activated || 0) + (da.activated || 0),
-        on_track: (cs.on_track || 0) + (da.on_track || 0),
-        not_activated: (cs.not_activated || 0) + (da.not_activated || 0),
-        lagging_behind: (cs.lagging_behind || 0) + (da.lagging_behind || 0),
-      };
-    }
-
-    const maxVal = funnelData.un_sponsored_seats || 1;
+    const k = getActiveKpiData();
+    const maxVal = k.total_registered || 1;
 
     const steps = [
-      { label: 'UN Sponsored Seats', val: funnelData.un_sponsored_seats },
-      { label: 'LMS Onboarded', val: funnelData.lms_onboarded },
-      { label: 'Activated Scholars', val: funnelData.activated },
-      { label: 'On Track Scholars', val: funnelData.on_track },
+      { label: 'Registered Scholars', val: k.total_registered },
+      { label: 'Activated Scholars', val: k.total_activated },
+      { label: 'On Track Scholars', val: k.total_on_track },
     ];
 
     funnelDisplay.innerHTML = steps.map(step => {
-      const pct = ((step.val / maxVal) * 100).toFixed(1);
+      const pct = maxVal > 0 ? ((step.val / maxVal) * 100).toFixed(1) : '0.0';
       return `
         <div class="funnel-row-item">
           <span class="funnel-label">${step.label}</span>
@@ -407,41 +367,36 @@
     requestAnimationFrame(() => {
       Motion.fadeUp(funnelDisplay.querySelectorAll('.funnel-row-item'), { stagger: 0.05, duration: 0.3 });
       setTimeout(() => {
-        if (Motion.available) {
-          funnelDisplay.querySelectorAll('.funnel-track-bar-fill').forEach((bar, i) => {
-            const targetWidth = bar.dataset.width;
-            bar.style.width = '0%';
-            setTimeout(() => {
-              window.Motion.animate(bar, { width: targetWidth }, {
-                duration: 0.5,
-                delay: i * 0.04,
-                easing: [0.22, 1, 0.36, 1],
-              });
-            }, 40);
-          });
-        } else {
-          funnelDisplay.querySelectorAll('.funnel-track-bar-fill').forEach(bar => {
-            bar.style.width = bar.dataset.width;
-          });
-        }
-      }, 80);
+        funnelDisplay.querySelectorAll('.funnel-track-bar-fill').forEach((bar, i) => {
+          const targetWidth = bar.dataset.width;
+          if (Motion.available) {
+            window.Motion.animate(bar, { width: targetWidth }, {
+              duration: 0.5,
+              delay: i * 0.04,
+              easing: [0.22, 1, 0.36, 1],
+            });
+          } else {
+            bar.style.width = targetWidth;
+          }
+        });
+      }, 50);
     });
   }
 
-  // Classification Chart (Theme-Aware Doughnut for Activation + Performance)
   function renderHealthChart() {
     const canvas = document.getElementById('healthChartOverall');
     const legendList = document.getElementById('healthLegendList');
     if (!canvas) return;
 
+    const k = getActiveKpiData();
     const classObj = {
-      'Activated': DATA.kpis.total_activated || 0,
-      'Not Activated': DATA.kpis.total_not_activated || 0,
-      'On Track': DATA.kpis.total_on_track || 0,
-      'Lagging Behind': DATA.kpis.total_lagging_behind || 0,
+      'Activated': k.total_activated || 0,
+      'Not Activated': k.total_not_activated || 0,
+      'On Track': k.total_on_track || 0,
+      'Off Track': k.total_off_track || 0,
     };
 
-    const total = DATA.kpis.total_registered || 511;
+    const total = k.total_registered || 0;
     const centerEl = document.getElementById('chartCenterTotal');
     if (centerEl) centerEl.textContent = total;
 
@@ -449,17 +404,14 @@
     const dataValues = Object.values(classObj);
     
     const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
-
-    // Theme-Aware Classification Palette
     const colors = isDark 
-      ? ['#4ADE80', '#94A3B8', '#60A5FA', '#FACC15']
-      : ['#047857', '#475569', '#2563EB', '#B45309'];
+      ? ['#4ADE80', '#94A3B8', '#60A5FA', '#F59E0B']
+      : ['#047857', '#475569', '#2563EB', '#D97706'];
 
-    // Render Legend
     if (legendList) {
       legendList.innerHTML = labels.map((label, idx) => {
         const val = dataValues[idx];
-        const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+        const pct = total > 0 ? ((val / total) * 100).toFixed(1) : '0.0';
         return `
           <div class="legend-item-row">
             <div class="legend-left">
@@ -472,7 +424,6 @@
       }).join('');
     }
 
-    // Chart.js Doughnut
     if (typeof Chart !== 'undefined') {
       if (healthChartInstance) healthChartInstance.destroy();
 
@@ -503,25 +454,681 @@
               borderWidth: 1,
               cornerRadius: 6,
               padding: 10,
-              titleFont: { family: 'Poppins', size: 12, weight: '600' },
-              bodyFont: { family: 'Poppins', size: 11 },
               callbacks: {
-                label: (ctx) => ` ${ctx.label}: ${ctx.raw} (${((ctx.raw / total) * 100).toFixed(1)}%)`,
+                label: (ctx) => ` ${ctx.label}: ${ctx.raw} (${total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0}%)`,
               },
             },
           },
-          animation: { animateRotate: true, duration: 500 },
+          animation: { animateRotate: true, duration: 400 },
         },
       });
     }
   }
 
-  // Table Directory & Filters (Optimized Debounce & Fast DOM Render)
+  // =========================================================================
+  // WEEK-OVER-WEEK (WoW) TREND CHARTS
+  // =========================================================================
+
+  function renderWoWCharts() {
+    const trendCanvas = document.getElementById('wowTrendChart');
+    const programCanvas = document.getElementById('wowProgramChart');
+    const countBadge = document.getElementById('wowSnapshotsCount');
+    if (!trendCanvas || !programCanvas) return;
+
+    const snapshots = getSnapshots();
+    if (countBadge) countBadge.textContent = `${snapshots.length} Snapshot(s) Saved`;
+
+    if (snapshots.length === 0) {
+      if (wowTrendChartInstance) wowTrendChartInstance.destroy();
+      if (wowProgramChartInstance) wowProgramChartInstance.destroy();
+      return;
+    }
+
+    // Chronological order (oldest to newest)
+    const chronoSnaps = [...snapshots].reverse();
+    const labels = chronoSnaps.map(s => s.week_label || s.version);
+
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    const textColor = isDark ? '#9E9EA4' : '#636366';
+    const gridColor = isDark ? '#313135' : '#E3E3E8';
+
+    // Chart 1: Activation & On-Track Volume over time
+    const activatedData = chronoSnaps.map(s => {
+      const k = activeProgramView === 'cs' ? s.kpis.cs : activeProgramView === 'da' ? s.kpis.da : s.kpis.combined;
+      return k ? k.total_activated : 0;
+    });
+
+    const onTrackData = chronoSnaps.map(s => {
+      const k = activeProgramView === 'cs' ? s.kpis.cs : activeProgramView === 'da' ? s.kpis.da : s.kpis.combined;
+      return k ? k.total_on_track : 0;
+    });
+
+    if (typeof Chart !== 'undefined') {
+      if (wowTrendChartInstance) wowTrendChartInstance.destroy();
+
+      wowTrendChartInstance = new Chart(trendCanvas, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Activated Scholars',
+              data: activatedData,
+              borderColor: '#4ADE80',
+              backgroundColor: 'rgba(74, 222, 128, 0.1)',
+              tension: 0.3,
+              fill: true,
+              pointRadius: 4,
+            },
+            {
+              label: 'On-Track Scholars',
+              data: onTrackData,
+              borderColor: '#60A5FA',
+              backgroundColor: 'rgba(96, 165, 250, 0.1)',
+              tension: 0.3,
+              fill: true,
+              pointRadius: 4,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: textColor, font: { family: 'Poppins', size: 11 } } }
+          },
+          scales: {
+            x: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } },
+            y: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } }
+          }
+        }
+      });
+
+      // Chart 2: Program Comparison (CS vs DA On-Track Volume)
+      const csOnTrack = chronoSnaps.map(s => s.kpis.cs ? s.kpis.cs.total_on_track : 0);
+      const daOnTrack = chronoSnaps.map(s => s.kpis.da ? s.kpis.da.total_on_track : 0);
+
+      if (wowProgramChartInstance) wowProgramChartInstance.destroy();
+
+      wowProgramChartInstance = new Chart(programCanvas, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'CS On-Track',
+              data: csOnTrack,
+              backgroundColor: '#3B82F6',
+              borderRadius: 4,
+            },
+            {
+              label: 'DA On-Track',
+              data: daOnTrack,
+              backgroundColor: '#8B5CF6',
+              borderRadius: 4,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: textColor, font: { family: 'Poppins', size: 11 } } }
+          },
+          scales: {
+            x: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } },
+            y: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } }
+          }
+        }
+      });
+    }
+  }
+
+  // =========================================================================
+  // PROGRAM VIEW FILTERING
+  // =========================================================================
+
+  function setupProgramTabs() {
+    const tabsContainer = document.getElementById('programFilterTabs');
+    if (!tabsContainer) return;
+
+    tabsContainer.querySelectorAll('.pill-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabsContainer.querySelectorAll('.pill-tab').forEach(t => {
+          t.classList.remove('active');
+          t.setAttribute('aria-selected', 'false');
+        });
+        tab.classList.add('active');
+        tab.setAttribute('aria-selected', 'true');
+
+        activeProgramView = tab.dataset.program;
+        renderDashboard();
+      });
+    });
+  }
+
+  // =========================================================================
+  // DUAL CSV UPLOAD & STRICT VALIDATION ENGINE
+  // =========================================================================
+
+  function setupDualUpload() {
+    const csFileInput = document.getElementById('csFileInput');
+    const daFileInput = document.getElementById('daFileInput');
+    const csDropzone = document.getElementById('csDropzone');
+    const daDropzone = document.getElementById('daDropzone');
+    const processBtn = document.getElementById('processCsvBtn');
+
+    if (csFileInput && csDropzone) {
+      setupSlotDropzone(csDropzone, csFileInput, (file) => handleSlotFile('CS', file));
+    }
+
+    if (daFileInput && daDropzone) {
+      setupSlotDropzone(daDropzone, daFileInput, (file) => handleSlotFile('DA', file));
+    }
+
+    if (processBtn) {
+      processBtn.addEventListener('click', executeDualCsvProcess);
+    }
+  }
+
+  function setupSlotDropzone(dropzoneEl, fileInputEl, onFileSelected) {
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
+      dropzoneEl.addEventListener(evt, preventDefaults, false);
+    });
+
+    ['dragenter', 'dragover'].forEach(evt => {
+      dropzoneEl.addEventListener(evt, () => dropzoneEl.classList.add('dragover'), false);
+    });
+
+    ['dragleave', 'drop'].forEach(evt => {
+      dropzoneEl.addEventListener(evt, () => dropzoneEl.classList.remove('dragover'), false);
+    });
+
+    dropzoneEl.addEventListener('drop', (e) => {
+      const files = e.dataTransfer.files;
+      if (files && files.length > 0) onFileSelected(files[0]);
+    }, false);
+
+    fileInputEl.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        onFileSelected(e.target.files[0]);
+      }
+    }, false);
+  }
+
+  function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function handleSlotFile(programType, file) {
+    // 1. Strict File Extension Rejection
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext !== 'csv') {
+      showSlotError(programType, `Invalid file format (${ext.toUpperCase()}). Please upload a valid .csv file.`);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target.result;
+        const parsedRows = parseCSV(text);
+
+        if (parsedRows.length === 0) {
+          showSlotError(programType, 'File is empty or unreadable.');
+          return;
+        }
+
+        // 2. Schema Validation
+        const validationErr = validateCsvSchema(programType, parsedRows[0]);
+        if (validationErr) {
+          showSlotError(programType, validationErr);
+          return;
+        }
+
+        // Successfully parsed & validated slot
+        if (programType === 'CS') {
+          stagedCS = { filename: file.name, rows: parsedRows };
+          setSlotValid('CS', file.name, `${parsedRows.length} CS rows validated`);
+        } else if (programType === 'DA') {
+          stagedDA = { filename: file.name, rows: parsedRows };
+          setSlotValid('DA', file.name, `${parsedRows.length} DA rows validated`);
+        }
+
+        checkAtomicProcessState();
+      } catch (err) {
+        showSlotError(programType, `Error parsing CSV: ${err.message}`);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function validateCsvSchema(programType, firstRow) {
+    if (!firstRow) return 'No header or row data detected.';
+    const keys = Object.keys(firstRow).map(k => k.trim());
+
+    const hasEmail = keys.some(k => k.toLowerCase() === 'email');
+    const hasStatus = keys.some(k => k.toLowerCase() === 'status');
+    const hasActivation = keys.some(k => k.toLowerCase().includes('activation'));
+
+    if (!hasEmail) return 'Missing required "Email" column.';
+    if (!hasStatus) return 'Missing required "Status" column.';
+    if (!hasActivation) return 'Missing required "Activation Status" column.';
+
+    if (programType === 'CS') {
+      const hasScore = keys.some(k => k.toLowerCase().includes('lms overall score') || k.toLowerCase().includes('score'));
+      if (!hasScore) return 'Missing required CS "LMS Overall Score" column.';
+    }
+
+    if (programType === 'DA') {
+      const hasClass = keys.some(k => k.toLowerCase().includes('latest class') || k.toLowerCase().includes('class') || k.toLowerCase().includes('level'));
+      if (!hasClass) return 'Missing required DA "Latest Class" or "Level" column.';
+    }
+
+    return null;
+  }
+
+  function setSlotValid(programType, filename, msg) {
+    const slotEl = document.getElementById(programType === 'CS' ? 'csDropzone' : 'daDropzone');
+    const nameEl = document.getElementById(programType === 'CS' ? 'csFileName' : 'daFileName');
+    const statusEl = document.getElementById(programType === 'CS' ? 'csFileStatus' : 'daFileStatus');
+
+    if (slotEl) {
+      slotEl.classList.remove('invalid-error');
+      slotEl.classList.add('valid-loaded');
+    }
+    if (nameEl) nameEl.textContent = `✓ ${filename}`;
+    if (statusEl) statusEl.textContent = msg;
+  }
+
+  function showSlotError(programType, errMessage) {
+    if (programType === 'CS') stagedCS = null;
+    if (programType === 'DA') stagedDA = null;
+
+    const slotEl = document.getElementById(programType === 'CS' ? 'csDropzone' : 'daDropzone');
+    const statusEl = document.getElementById(programType === 'CS' ? 'csFileStatus' : 'daFileStatus');
+
+    if (slotEl) {
+      slotEl.classList.remove('valid-loaded');
+      slotEl.classList.add('invalid-error');
+    }
+    if (statusEl) statusEl.textContent = `❌ ${errMessage}`;
+
+    checkAtomicProcessState();
+    showStatus(`Validation error in ${programType} CSV: ${errMessage}`, 'error');
+  }
+
+  function checkAtomicProcessState() {
+    const processBtn = document.getElementById('processCsvBtn');
+    const statusEl = document.getElementById('uploadStatus');
+
+    if (stagedCS && stagedDA) {
+      if (processBtn) processBtn.disabled = false;
+      if (statusEl) {
+        statusEl.className = 'upload-feedback success';
+        statusEl.textContent = `Both CS (${stagedCS.rows.length} rows) and DA (${stagedDA.rows.length} rows) ready to process!`;
+      }
+    } else {
+      if (processBtn) processBtn.disabled = true;
+      if (statusEl) {
+        statusEl.className = 'upload-feedback info';
+        if (!stagedCS && !stagedDA) {
+          statusEl.textContent = 'Both CSV files required to process dashboard update.';
+        } else if (!stagedCS) {
+          statusEl.textContent = 'Awaiting Cybersecurity (CS) CSV file...';
+        } else {
+          statusEl.textContent = 'Awaiting Data Analytics (DA) CSV file...';
+        }
+      }
+    }
+  }
+
+  function executeDualCsvProcess() {
+    if (!stagedCS || !stagedDA) {
+      showStatus('Atomic lock: Both CS and DA summary CSV files are required!', 'error');
+      return;
+    }
+
+    const weekLabelInput = document.getElementById('weekLabelInput');
+    const weekLabel = (weekLabelInput?.value || '').trim() || `Week Snapshot - ${new Date().toISOString().slice(0, 10)}`;
+
+    const csLearners = stagedCS.rows.map(r => parseCsRow(r)).filter(Boolean);
+    const daLearners = stagedDA.rows.map(r => parseDaRow(r)).filter(Boolean);
+
+    const allLearners = [...csLearners, ...daLearners];
+
+    // Build KPIs
+    const csKpis = computeCohortKpis(csLearners);
+    const daKpis = computeCohortKpis(daLearners);
+    const combinedKpis = computeCohortKpis(allLearners);
+
+    const newDataset = {
+      week_label: weekLabel,
+      generated_at: new Date().toISOString(),
+      kpis: {
+        combined: combinedKpis,
+        cs: csKpis,
+        da: daKpis,
+      },
+      learners: allLearners,
+    };
+
+    DATA = newDataset;
+
+    // Save snapshot to history
+    saveSnapshot(weekLabel, 'Dual CSV Upload', newDataset);
+
+    // Render dashboard
+    renderDashboard();
+    showStatus(`Successfully ingested ${allLearners.length} scholars (${csLearners.length} CS, ${daLearners.length} DA) for ${weekLabel}!`, 'success');
+  }
+
+  function parseCsRow(row) {
+    const emailKey = Object.keys(row).find(k => k.trim().toLowerCase() === 'email');
+    const scoreKey = Object.keys(row).find(k => k.trim().toLowerCase().includes('score'));
+    const statusKey = Object.keys(row).find(k => k.trim().toLowerCase() === 'status');
+    const actKey = Object.keys(row).find(k => k.trim().toLowerCase().includes('activation'));
+
+    const email = String(row[emailKey] || '').trim();
+    if (!email) return null;
+
+    const rawScore = parseFloat(row[scoreKey]);
+    const score = !isNaN(rawScore) ? Math.round(rawScore * 100) / 100 : null;
+
+    const rawStatus = stripEmoji(row[statusKey]);
+    const rawActivation = stripEmoji(row[actKey]);
+
+    const status = rawStatus.toLowerCase().includes('on track') ? 'On Track' : 'Off Track';
+    const activation_status = rawActivation.toLowerCase().includes('activated') && !rawActivation.toLowerCase().includes('not') ? 'Activated' : 'Not Activated';
+
+    return {
+      track: 'Cybersecurity',
+      email: email,
+      lms_overall_score: score,
+      latest_class: null,
+      level: null,
+      detail: score != null ? `LMS Score: ${score}%` : '-',
+      status: status,
+      activation_status: activation_status,
+      performance_status: status,
+    };
+  }
+
+  function parseDaRow(row) {
+    const emailKey = Object.keys(row).find(k => k.trim().toLowerCase() === 'email');
+    const classKey = Object.keys(row).find(k => k.trim().toLowerCase().includes('class'));
+    const levelKey = Object.keys(row).find(k => k.trim().toLowerCase().includes('level'));
+    const statusKey = Object.keys(row).find(k => k.trim().toLowerCase() === 'status');
+    const actKey = Object.keys(row).find(k => k.trim().toLowerCase().includes('activation'));
+
+    const email = String(row[emailKey] || '').trim();
+    if (!email) return null;
+
+    const latestClass = classKey ? String(row[classKey] || '').trim() : '';
+    const level = levelKey ? String(row[levelKey] || '').trim() : '';
+
+    const rawStatus = stripEmoji(row[statusKey]);
+    const rawActivation = stripEmoji(row[actKey]);
+
+    const status = rawStatus.toLowerCase().includes('on track') ? 'On Track' : 'Off Track';
+    const activation_status = rawActivation.toLowerCase().includes('activated') && !rawActivation.toLowerCase().includes('not') ? 'Activated' : 'Not Activated';
+
+    let detail = latestClass || (level ? `Level ${level}` : '-');
+    if (latestClass && level) detail = `${latestClass} (L${level})`;
+
+    return {
+      track: 'Data Analytics',
+      email: email,
+      lms_overall_score: null,
+      latest_class: latestClass,
+      level: level,
+      detail: detail,
+      status: status,
+      activation_status: activation_status,
+      performance_status: status,
+    };
+  }
+
+  function computeCohortKpis(learners) {
+    const total = learners.length;
+    const activated = learners.filter(l => l.activation_status === 'Activated').length;
+    const notActivated = learners.filter(l => l.activation_status === 'Not Activated').length;
+    const onTrack = learners.filter(l => l.status === 'On Track').length;
+    const offTrack = learners.filter(l => l.status === 'Off Track').length;
+
+    return {
+      total_registered: total,
+      total_activated: activated,
+      total_not_activated: notActivated,
+      total_on_track: onTrack,
+      total_off_track: offTrack,
+      activation_rate: total > 0 ? ((activated / total) * 100).toFixed(1) : '0.0',
+      on_track_rate: total > 0 ? ((onTrack / total) * 100).toFixed(1) : '0.0',
+    };
+  }
+
+  function stripEmoji(str) {
+    if (!str) return '';
+    return String(str).replace(/[^\w\s-]/gi, '').trim();
+  }
+
+  // Native Robust CSV Parser
+  function parseCSV(text) {
+    const lines = text.split(/\r\n|\n/);
+    if (lines.length === 0) return [];
+
+    const headers = parseCsvLine(lines[0]);
+    if (!headers || headers.length === 0) return [];
+
+    const result = [];
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      const values = parseCsvLine(line);
+      const row = {};
+      headers.forEach((h, idx) => {
+        row[h] = values[idx] != null ? values[idx] : '';
+      });
+      result.push(row);
+    }
+    return result;
+  }
+
+  function parseCsvLine(line) {
+    const values = [];
+    let insideQuote = false;
+    let currentVal = '';
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        insideQuote = !insideQuote;
+      } else if (char === ',' && !insideQuote) {
+        values.push(currentVal.trim());
+        currentVal = '';
+      } else {
+        currentVal += char;
+      }
+    }
+    values.push(currentVal.trim());
+    return values;
+  }
+
+  // =========================================================================
+  // HISTORICAL SNAPSHOTS ENGINE (localStorage)
+  // =========================================================================
+
+  function getSnapshots() {
+    try {
+      const raw = localStorage.getItem(STORAGE_SNAPSHOTS);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveSnapshot(weekLabel, source, datasetToSave) {
+    const dataset = datasetToSave || DATA;
+    if (!dataset) return;
+
+    const snapshots = getSnapshots();
+    const snap = {
+      id: `snap_${Date.now()}`,
+      week_label: weekLabel,
+      timestamp: new Date().toISOString(),
+      source: source,
+      kpis: typeof structuredClone === 'function' ? structuredClone(dataset.kpis) : JSON.parse(JSON.stringify(dataset.kpis)),
+      data: typeof structuredClone === 'function' ? structuredClone(dataset) : JSON.parse(JSON.stringify(dataset)),
+    };
+
+    snapshots.unshift(snap);
+
+    // Keep max 20 snapshots
+    if (snapshots.length > 20) snapshots.pop();
+
+    try {
+      localStorage.setItem(STORAGE_SNAPSHOTS, JSON.stringify(snapshots));
+      localStorage.setItem(STORAGE_CUSTOM_DATA, JSON.stringify(dataset));
+    } catch (e) {
+      console.warn('LocalStorage quota exceeded for snapshot save.', e);
+    }
+  }
+
+  function setupVersionHistoryModal() {
+    const modal = document.getElementById('versionHistoryModal');
+    const closeBtn = document.getElementById('versionModalClose');
+    const doneBtn = document.getElementById('closeVersionModalBtn');
+    const createBtn = document.getElementById('createSnapshotBtn');
+
+    if (!modal) return;
+
+    function hide() { modal.classList.add('hidden'); }
+
+    if (closeBtn) closeBtn.addEventListener('click', hide);
+    if (doneBtn) doneBtn.addEventListener('click', hide);
+    if (createBtn) {
+      createBtn.addEventListener('click', () => {
+        if (!DATA) {
+          showStatus('No dataset active to snapshot.', 'error');
+          return;
+        }
+        const label = prompt('Enter a label for this manual snapshot:', DATA.week_label || 'Manual Snapshot');
+        if (label) {
+          saveSnapshot(label, 'Manual Save', DATA);
+          renderSnapshotTable();
+          renderTimestamp();
+          renderWoWCharts();
+          showStatus('Snapshot created successfully!', 'success');
+        }
+      });
+    }
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) hide();
+    });
+  }
+
+  function showVersionHistoryModal() {
+    const modal = document.getElementById('versionHistoryModal');
+    if (!modal) return;
+    renderSnapshotTable();
+    modal.classList.remove('hidden');
+  }
+
+  function renderSnapshotTable() {
+    const tbody = document.getElementById('snapshotsTableBody');
+    if (!tbody) return;
+
+    const snapshots = getSnapshots();
+
+    if (snapshots.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">No historical snapshots saved. Upload weekly CSVs to create snapshots.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = snapshots.map(snap => {
+      const isCurrent = DATA && DATA.week_label === snap.week_label;
+      const dateStr = new Date(snap.timestamp).toLocaleString();
+      const scholars = snap.kpis.combined ? snap.kpis.combined.total_registered : 0;
+      const act = snap.kpis.combined ? snap.kpis.combined.total_activated : 0;
+
+      return `
+        <tr style="${isCurrent ? 'background: var(--bg-card-hover); font-weight: 600;' : ''}">
+          <td><span class="version-tag-pill">${escapeHtml(snap.week_label)} ${isCurrent ? '✓ Active' : ''}</span></td>
+          <td>${escapeHtml(snap.source || 'Upload')}</td>
+          <td style="font-size: 11px; color: var(--text-sub);">${dateStr}</td>
+          <td>${scholars}</td>
+          <td><span style="color: var(--status-activated);">${act}</span></td>
+          <td>
+            <div style="display: flex; gap: 4px;">
+              ${!isCurrent ? `<button class="btn btn-outline" onclick="window.restoreSnapshot('${snap.id}')" style="padding: 2px 6px; font-size: 10px;">Restore</button>` : ''}
+              <button class="btn btn-outline" onclick="window.compareSnapshot('${snap.id}')" style="padding: 2px 6px; font-size: 10px;">Compare</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  window.restoreSnapshot = function (snapId) {
+    const snapshots = getSnapshots();
+    const snap = snapshots.find(s => s.id === snapId);
+    if (!snap) return;
+
+    if (confirm(`Restore snapshot "${snap.week_label}"?`)) {
+      DATA = JSON.parse(JSON.stringify(snap.data));
+      localStorage.setItem(STORAGE_CUSTOM_DATA, JSON.stringify(DATA));
+      renderDashboard();
+      showVersionHistoryModal();
+      showStatus(`Restored data snapshot "${snap.week_label}"!`, 'success');
+    }
+  };
+
+  window.compareSnapshot = function (snapId) {
+    const snapshots = getSnapshots();
+    const snap = snapshots.find(s => s.id === snapId);
+    const drawer = document.getElementById('compareDrawer');
+    const grid = document.getElementById('compareGrid');
+    if (!snap || !drawer || !grid) return;
+
+    const curK = getActiveKpiData();
+    const oldK = snap.kpis.combined || snap.kpis;
+
+    const diffReg = curK.total_registered - oldK.total_registered;
+    const diffAct = curK.total_activated - oldK.total_activated;
+    const diffOnTrack = curK.total_on_track - oldK.total_on_track;
+
+    grid.innerHTML = `
+      <div class="compare-stat-card">
+        <div class="compare-stat-label">Snapshot Target</div>
+        <div class="compare-stat-val">${escapeHtml(snap.week_label)}</div>
+      </div>
+      <div class="compare-stat-card">
+        <div class="compare-stat-label">Scholars Delta</div>
+        <div class="compare-stat-val">${curK.total_registered} <span class="compare-delta ${diffReg >= 0 ? 'delta-pos' : 'delta-neg'}">${diffReg >= 0 ? '+' : ''}${diffReg}</span></div>
+      </div>
+      <div class="compare-stat-card">
+        <div class="compare-stat-label">Activated Delta</div>
+        <div class="compare-stat-val">${curK.total_activated} <span class="compare-delta ${diffAct >= 0 ? 'delta-pos' : 'delta-neg'}">${diffAct >= 0 ? '+' : ''}${diffAct}</span></div>
+      </div>
+      <div class="compare-stat-card">
+        <div class="compare-stat-label">On Track Delta</div>
+        <div class="compare-stat-val">${curK.total_on_track} <span class="compare-delta ${diffOnTrack >= 0 ? 'delta-pos' : 'delta-neg'}">${diffOnTrack >= 0 ? '+' : ''}${diffOnTrack}</span></div>
+      </div>
+    `;
+
+    drawer.classList.remove('hidden');
+  };
+
+  // =========================================================================
+  // LEARNER DIRECTORY TABLE
+  // =========================================================================
+
   function setupTable() {
     const searchInput = document.getElementById('searchInput');
     const clearSearchBtn = document.getElementById('clearSearchBtn');
     const filterTrack = document.getElementById('filterTrack');
-    const filterTime = document.getElementById('filterTime');
     const activationChips = document.getElementById('activationChips');
     const performanceChips = document.getElementById('performanceChips');
     const exportBtn = document.getElementById('exportCsvBtn');
@@ -557,14 +1164,6 @@
       });
     }
 
-    if (filterTime) {
-      filterTime.addEventListener('change', () => {
-        activeTimeFilter = filterTime.value;
-        currentPage = 1;
-        filterAndRender();
-      });
-    }
-
     if (activationChips) {
       activationChips.querySelectorAll('.chip').forEach(chip => {
         chip.addEventListener('click', () => {
@@ -587,7 +1186,6 @@
       });
     }
 
-    // Sortable Headers
     document.querySelectorAll('.smart-table th[data-sort]').forEach(th => {
       th.addEventListener('click', () => {
         const col = th.dataset.sort;
@@ -615,15 +1213,13 @@
   }
 
   function updateChipUI() {
-    const actChips = document.querySelectorAll('#activationChips .chip');
-    actChips.forEach(chip => {
+    document.querySelectorAll('#activationChips .chip').forEach(chip => {
       const match = chip.dataset.activation === activeActivationFilter;
       chip.classList.toggle('active', match);
       chip.setAttribute('aria-checked', match ? 'true' : 'false');
     });
 
-    const perfChips = document.querySelectorAll('#performanceChips .chip');
-    perfChips.forEach(chip => {
+    document.querySelectorAll('#performanceChips .chip').forEach(chip => {
       const match = chip.dataset.performance === activePerformanceFilter;
       chip.classList.toggle('active', match);
       chip.setAttribute('aria-checked', match ? 'true' : 'false');
@@ -631,70 +1227,37 @@
   }
 
   function filterAndRender() {
-    const search = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
-
-    // Determine max submission timestamp in dataset for relative time window calculations
-    let maxTimestamp = 0;
-    if (activeTimeFilter && activeTimeFilter !== 'inactive' && DATA && DATA.learners) {
-      DATA.learners.forEach(l => {
-        if (l.last_submission_date && l.last_submission_date !== '-') {
-          const t = new Date(l.last_submission_date).getTime();
-          if (!isNaN(t) && t > maxTimestamp) maxTimestamp = t;
-        }
-      });
-      if (maxTimestamp === 0) maxTimestamp = Date.now();
+    if (!DATA || !DATA.learners) {
+      filteredLearners = [];
+      renderTable();
+      renderPagination();
+      return;
     }
 
+    const search = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+
     filteredLearners = DATA.learners.filter(l => {
+      if (activeProgramView === 'cs' && l.track !== 'Cybersecurity') return false;
+      if (activeProgramView === 'da' && l.track !== 'Data Analytics') return false;
+
       if (activeTrackFilter && l.track !== activeTrackFilter) return false;
       if (activeActivationFilter && l.activation_status !== activeActivationFilter) return false;
-      if (activePerformanceFilter && l.performance_status !== activePerformanceFilter) return false;
-
-      if (activeTimeFilter) {
-        if (activeTimeFilter === 'inactive') {
-          if (l.last_submission_date && l.last_submission_date !== '-' && (l.num_submissions || 0) > 0) return false;
-        } else {
-          const daysLimit = parseInt(activeTimeFilter, 10);
-          if (!l.last_submission_date || l.last_submission_date === '-') return false;
-          const subTime = new Date(l.last_submission_date).getTime();
-          if (isNaN(subTime)) return false;
-          const diffDays = (maxTimestamp - subTime) / (1000 * 60 * 60 * 24);
-          if (diffDays > daysLimit) return false;
-        }
-      }
+      if (activePerformanceFilter && l.status !== activePerformanceFilter) return false;
 
       if (search) {
-        const text = `${l.full_name} ${l.email} ${l.phone}`.toLowerCase();
+        const text = `${l.email} ${l.track} ${l.detail}`.toLowerCase();
         if (!text.includes(search)) return false;
       }
       return true;
     });
 
-    // Sorting
     filteredLearners.sort((a, b) => {
       let va = a[sortColumn];
       let vb = b[sortColumn];
 
-      if (sortColumn === 'activation_status') {
-        va = ACTIVATION_SORT_ORDER[va] ?? 99;
-        vb = ACTIVATION_SORT_ORDER[vb] ?? 99;
-      } else if (sortColumn === 'performance_status') {
-        va = PERFORMANCE_SORT_ORDER[va] ?? 99;
-        vb = PERFORMANCE_SORT_ORDER[vb] ?? 99;
-      }
-
       if (va == null && vb == null) return 0;
       if (va == null) return 1;
       if (vb == null) return -1;
-
-      if (typeof va === 'boolean') {
-        va = va ? 1 : 0;
-        vb = vb ? 1 : 0;
-      }
-
-      if (typeof va === 'number' && typeof vb === 'number') {
-        return sortDirection === 'asc' ? va - vb : vb - va;
-      }
 
       va = String(va).toLowerCase();
       vb = String(vb).toLowerCase();
@@ -707,51 +1270,47 @@
     renderPagination();
   }
 
-  // Fast Table Render using DocumentFragment
   function renderTable() {
     const tbody = document.getElementById('learnerTableBody');
     if (!tbody) return;
 
-    const start = (currentPage - 1) * PAGE_SIZE;
-    const page = filteredLearners.slice(start, start + PAGE_SIZE);
-
-    if (page.length === 0) {
+    if (filteredLearners.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="7">
+          <td colspan="5">
             <div class="empty-state" style="padding: 40px; text-align: center; color: var(--text-muted);">
               <div style="margin-bottom: 8px; color: var(--text-sub);">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               </div>
-              <div style="font-weight: 500; color: var(--text-main);">No matching learners found</div>
-              <div style="font-size: 12px; margin-top: 4px;">Try searching for a different keyword or reset filters</div>
+              <div style="font-weight: 600; color: var(--text-main); font-size: 14px;">${DATA ? 'No matching scholars found' : 'No Dashboard Data Loaded'}</div>
+              <div style="font-size: 12px; margin-top: 4px;">${DATA ? 'Try clearing search filters or selecting a different view' : 'Switch to Admin Data Ops to upload weekly CS and DA summary CSV files'}</div>
             </div>
           </td>
         </tr>
       `;
+      const rc = document.getElementById('resultCount');
+      if (rc) rc.textContent = 'Showing 0 learners';
       return;
     }
+
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const page = filteredLearners.slice(start, start + PAGE_SIZE);
 
     const fragment = document.createDocumentFragment();
     const tempContainer = document.createElement('tbody');
 
     tempContainer.innerHTML = page.map(l => {
       const actBadgeClass = l.activation_status === 'Activated' ? 'activated' : 'not-activated';
-      const perfBadgeClass = l.performance_status === 'On Track' ? 'on-track' : l.performance_status === 'Lagging Behind' ? 'lagging' : 'na';
+      const perfBadgeClass = l.status === 'On Track' ? 'on-track' : 'off-track';
       const trackClass = l.track === 'Cybersecurity' ? 'cs' : 'da';
-      const scoreHtml = renderScore(l.lms_overall_score);
 
       return `
         <tr>
-          <td style="font-weight: 600;" title="${escapeHtml(l.full_name)}">${escapeHtml(l.full_name)}</td>
-          <td><span class="track-tag ${trackClass}">${l.track === 'Cybersecurity' ? 'CS' : 'DA'}</span></td>
           <td>
-            <div style="display: flex; flex-direction: column;">
-              <a href="mailto:${escapeHtml(l.email)}" style="color: var(--text-accent); text-decoration: none; font-weight: 500;" title="Email learner">${escapeHtml(l.email)}</a>
-              <span style="font-size: 11px; color: var(--text-muted);">${escapeHtml(l.phone || '-')}</span>
-            </div>
+            <a href="mailto:${escapeHtml(l.email)}" style="color: var(--text-accent); text-decoration: none; font-weight: 500;">${escapeHtml(l.email)}</a>
           </td>
-          <td>${scoreHtml}</td>
+          <td><span class="track-tag ${trackClass}">${l.track === 'Cybersecurity' ? 'CS' : 'DA'}</span></td>
+          <td style="font-size: 12px; color: var(--text-sub);">${escapeHtml(l.detail)}</td>
           <td>
             <span class="status-pill-badge ${actBadgeClass}">
               <span class="status-badge-dot"></span>${l.activation_status}
@@ -759,10 +1318,9 @@
           </td>
           <td>
             <span class="status-pill-badge ${perfBadgeClass}">
-              <span class="status-badge-dot"></span>${l.performance_status}
+              <span class="status-badge-dot"></span>${l.status}
             </span>
           </td>
-          <td style="color: var(--text-sub); font-size: 11px;">${l.last_submission_date || '-'}</td>
         </tr>
       `;
     }).join('');
@@ -821,32 +1379,19 @@
     });
   }
 
-  function renderScore(score) {
-    if (score == null) return '<span style="color: var(--text-muted);">-</span>';
-    const color = score >= 70 ? 'var(--status-activated)' : score >= 40 ? 'var(--status-lagging)' : 'var(--status-not-activated)';
-    return `
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <span style="font-weight: 600; width: 36px;">${score}%</span>
-        <div style="flex: 1; height: 4px; background: var(--bg-input); border-radius: 2px; overflow: hidden; width: 60px;">
-          <div style="height: 100%; width: ${Math.min(score, 100)}%; background: ${color}; border-radius: 2px;"></div>
-        </div>
-      </div>
-    `;
-  }
-
-  // CSV Export
   function exportCSV() {
-    const headers = ['Name', 'Track', 'Email', 'Phone', 'LMS Score', 'Activation Status', 'Performance Status', 'Last Active', 'Sponsorship'];
+    if (!filteredLearners || filteredLearners.length === 0) {
+      showStatus('No learners available to export.', 'error');
+      return;
+    }
+
+    const headers = ['Email', 'Track', 'Program Detail', 'Activation Status', 'Performance Status'];
     const rows = filteredLearners.map(l => [
-      l.full_name,
-      l.track,
       l.email,
-      l.phone || '',
-      l.lms_overall_score != null ? `${l.lms_overall_score}%` : '',
+      l.track,
+      l.detail,
       l.activation_status,
-      l.performance_status,
-      l.last_submission_date || '',
-      l.is_un_sponsored ? 'UN Women' : 'Other',
+      l.status,
     ]);
 
     const csv = [
@@ -858,12 +1403,15 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `ALX_UN_Women_Learners_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `ALX_UN_Women_Learners_${DATA ? DATA.week_label : 'export'}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
 
-  // Mode Switching & Mobile Navigation
+  // =========================================================================
+  // ADMIN AUTH & MODE SWITCHING
+  // =========================================================================
+
   function setupModeSwitch() {
     const viewBtn = document.getElementById('viewModeBtn');
     const adminBtn = document.getElementById('adminModeBtn');
@@ -891,75 +1439,44 @@
     if (mobileViewBtn) mobileViewBtn.addEventListener('click', handleViewClick);
     if (mobileAdminBtn) mobileAdminBtn.addEventListener('click', handleAdminClick);
 
-    if (openVerBtn) {
-      openVerBtn.addEventListener('click', () => showVersionHistoryModal());
-    }
+    if (openVerBtn) openVerBtn.addEventListener('click', () => showVersionHistoryModal());
 
     if (resetBtn) {
       resetBtn.addEventListener('click', () => {
-        if (confirm('Reset dashboard data to original default source file?')) {
-          localStorage.removeItem('alx_unwomen_custom_data');
-          DATA = DEFAULT_DATA;
-          saveSnapshot('v1.0 Baseline', 'Default System Restore');
+        if (confirm('Clear all dashboard data and reset local dataset storage?')) {
+          localStorage.removeItem(STORAGE_CUSTOM_DATA);
+          localStorage.removeItem(STORAGE_SNAPSHOTS);
+          DATA = null;
+          stagedCS = null;
+          stagedDA = null;
           renderDashboard();
-          showStatus('Dashboard reset to default baseline data', 'info');
+          showStatus('All dashboard data cleared.', 'info');
         }
       });
     }
   }
 
-  function closeMobileNav() {
-    const menu = document.getElementById('mobileNavMenu');
-    const toggleBtn = document.getElementById('hamburgerToggleBtn');
-    if (!menu) return;
-    menu.classList.add('hidden');
-    if (toggleBtn) {
-      toggleBtn.setAttribute('aria-expanded', 'false');
-      toggleBtn.querySelector('.hamburger-icon-open')?.classList.remove('hidden');
-      toggleBtn.querySelector('.hamburger-icon-close')?.classList.add('hidden');
+  function setAdminMode(isAdmin) {
+    const viewBtn = document.getElementById('viewModeBtn');
+    const adminBtn = document.getElementById('adminModeBtn');
+    const mobileViewBtn = document.getElementById('mobileViewModeBtn');
+    const mobileAdminBtn = document.getElementById('mobileAdminModeBtn');
+    const adminBanner = document.getElementById('adminBanner');
+
+    if (isAdmin) {
+      viewBtn?.classList.remove('active');
+      mobileViewBtn?.classList.remove('active');
+      adminBtn?.classList.add('active');
+      mobileAdminBtn?.classList.add('active');
+      adminBanner?.classList.remove('hidden');
+      adminBanner?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      adminBtn?.classList.remove('active');
+      mobileAdminBtn?.classList.remove('active');
+      viewBtn?.classList.add('active');
+      mobileViewBtn?.classList.add('active');
+      adminBanner?.classList.add('hidden');
     }
-  }
-
-  function setupMobileNav() {
-    const toggleBtn = document.getElementById('hamburgerToggleBtn');
-    const menu = document.getElementById('mobileNavMenu');
-    const mobileVersionPill = document.getElementById('mobileHeaderVersionPill');
-    if (!toggleBtn || !menu) return;
-
-    toggleBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const isHidden = menu.classList.contains('hidden');
-      if (isHidden) {
-        menu.classList.remove('hidden');
-        toggleBtn.setAttribute('aria-expanded', 'true');
-        toggleBtn.querySelector('.hamburger-icon-open')?.classList.add('hidden');
-        toggleBtn.querySelector('.hamburger-icon-close')?.classList.remove('hidden');
-      } else {
-        closeMobileNav();
-      }
-    });
-
-    if (mobileVersionPill) {
-      mobileVersionPill.addEventListener('click', () => {
-        showVersionHistoryModal();
-        closeMobileNav();
-      });
-    }
-
-    document.addEventListener('click', (e) => {
-      if (!menu.classList.contains('hidden')) {
-        const header = document.querySelector('.top-header');
-        if (header && !header.contains(e.target)) {
-          closeMobileNav();
-        }
-      }
-    });
-
-    window.addEventListener('resize', () => {
-      if (window.innerWidth > 768) {
-        closeMobileNav();
-      }
-    });
   }
 
   function setupAdminLoginModal() {
@@ -1022,471 +1539,60 @@
     }
   }
 
-  function setAdminMode(isAdmin) {
-    const viewBtn = document.getElementById('viewModeBtn');
-    const adminBtn = document.getElementById('adminModeBtn');
-    const mobileViewBtn = document.getElementById('mobileViewModeBtn');
-    const mobileAdminBtn = document.getElementById('mobileAdminModeBtn');
-    const adminBanner = document.getElementById('adminBanner');
-
-    if (isAdmin) {
-      viewBtn?.classList.remove('active');
-      mobileViewBtn?.classList.remove('active');
-      adminBtn?.classList.add('active');
-      mobileAdminBtn?.classList.add('active');
-      adminBanner?.classList.remove('hidden');
-      adminBanner?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-      adminBtn?.classList.remove('active');
-      mobileAdminBtn?.classList.remove('active');
-      viewBtn?.classList.add('active');
-      mobileViewBtn?.classList.add('active');
-      adminBanner?.classList.add('hidden');
-    }
-  }
-
   // =========================================================================
-  // DATA VERSIONING & HISTORICAL SNAPSHOT SYSTEM
+  // MOBILE NAVIGATION & THEME TOGGLE
   // =========================================================================
 
-  function getSnapshots() {
-    try {
-      const raw = localStorage.getItem('alx_unwomen_snapshots');
-      return raw ? JSON.parse(raw) : [];
-    } catch (e) {
-      return [];
-    }
-  }
+  function setupMobileNav() {
+    const toggleBtn = document.getElementById('hamburgerToggleBtn');
+    const menu = document.getElementById('mobileNavMenu');
+    const mobileVersionPill = document.getElementById('mobileHeaderVersionPill');
+    if (!toggleBtn || !menu) return;
 
-  function saveSnapshot(label = 'Manual Snapshot', source = 'Admin System') {
-    if (!DATA) return;
-    const snapshots = getSnapshots();
-    
-    // Auto-increment version tag
-    const versionNum = (snapshots.length + 1.0).toFixed(1);
-    const versionTag = `v${versionNum}`;
-    DATA.version = versionTag;
-
-    const snap = {
-      id: `snap_${Date.now()}`,
-      version: versionTag,
-      timestamp: new Date().toISOString(),
-      label: label,
-      source: source,
-      kpis: { ...DATA.kpis },
-      data: typeof structuredClone === 'function' ? structuredClone(DATA) : JSON.parse(JSON.stringify(DATA)),
-    };
-
-    snapshots.unshift(snap);
-    // Keep last 15 snapshots
-    if (snapshots.length > 15) snapshots.pop();
-
-    try {
-      localStorage.setItem('alx_unwomen_snapshots', JSON.stringify(snapshots));
-      localStorage.setItem('alx_unwomen_custom_data', JSON.stringify(DATA));
-    } catch (e) {
-      console.warn('LocalStorage quota exceeded for snapshot save.');
-    }
-  }
-
-  function ensureInitialSnapshot() {
-    const snapshots = getSnapshots();
-    if (snapshots.length === 0 && DATA) {
-      saveSnapshot('v1.0 Baseline', 'Default System Import');
-    }
-  }
-
-  function setupVersionHistoryModal() {
-    const modal = document.getElementById('versionHistoryModal');
-    const closeBtn = document.getElementById('versionModalClose');
-    const doneBtn = document.getElementById('closeVersionModalBtn');
-    const createBtn = document.getElementById('createSnapshotBtn');
-
-    if (!modal) return;
-
-    function hide() {
-      modal.classList.add('hidden');
-    }
-
-    if (closeBtn) closeBtn.addEventListener('click', hide);
-    if (doneBtn) doneBtn.addEventListener('click', hide);
-    if (createBtn) {
-      createBtn.addEventListener('click', () => {
-        saveSnapshot('Admin Manual Snapshot', 'User Action');
-        renderSnapshotTable();
-        renderTimestamp();
-        showStatus('New data snapshot created successfully!', 'success');
-      });
-    }
-
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) hide();
-    });
-  }
-
-  function showVersionHistoryModal() {
-    const modal = document.getElementById('versionHistoryModal');
-    if (!modal) return;
-
-    renderSnapshotTable();
-    modal.classList.remove('hidden');
-  }
-
-  function renderSnapshotTable() {
-    const tbody = document.getElementById('snapshotsTableBody');
-    if (!tbody) return;
-
-    const snapshots = getSnapshots();
-
-    if (snapshots.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">No historical snapshots saved.</td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = snapshots.map(snap => {
-      const isCurrent = (DATA && DATA.version === snap.version);
-      const dateStr = new Date(snap.timestamp).toLocaleString();
-      const scholars = snap.kpis.total_registered || 0;
-      const act = snap.kpis.total_activated || 0;
-
-      return `
-        <tr style="${isCurrent ? 'background: var(--bg-card-hover); font-weight: 600;' : ''}">
-          <td>
-            <span class="version-tag-pill">${snap.version} ${isCurrent ? '✓ Active' : ''}</span>
-          </td>
-          <td>${escapeHtml(snap.label)} <span style="font-size: 10px; color: var(--text-muted);">(${escapeHtml(snap.source)})</span></td>
-          <td style="font-size: 11px; color: var(--text-sub);">${dateStr}</td>
-          <td>${scholars}</td>
-          <td><span style="color: var(--status-activated);">${act}</span></td>
-          <td>
-            <div style="display: flex; gap: 4px;">
-              ${!isCurrent ? `<button class="btn btn-outline" onclick="window.restoreSnapshot('${snap.id}')" style="padding: 2px 6px; font-size: 10px;">Restore</button>` : ''}
-              <button class="btn btn-outline" onclick="window.compareSnapshot('${snap.id}')" style="padding: 2px 6px; font-size: 10px;">Compare</button>
-            </div>
-          </td>
-        </tr>
-      `;
-    }).join('');
-  }
-
-  // Global helper functions attached to window for table onclick handlers
-  window.restoreSnapshot = function (snapId) {
-    const snapshots = getSnapshots();
-    const snap = snapshots.find(s => s.id === snapId);
-    if (!snap) return;
-
-    if (confirm(`Restore snapshot version ${snap.version} (${snap.label})?`)) {
-      DATA = JSON.parse(JSON.stringify(snap.data));
-      localStorage.setItem('alx_unwomen_custom_data', JSON.stringify(DATA));
-      renderDashboard();
-      showVersionHistoryModal();
-      showStatus(`Restored data snapshot to ${snap.version}!`, 'success');
-    }
-  };
-
-  window.compareSnapshot = function (snapId) {
-    const snapshots = getSnapshots();
-    const snap = snapshots.find(s => s.id === snapId);
-    const drawer = document.getElementById('compareDrawer');
-    const grid = document.getElementById('compareGrid');
-    if (!snap || !drawer || !grid) return;
-
-    const curK = DATA.kpis;
-    const oldK = snap.kpis;
-
-    const diffReg = curK.total_registered - oldK.total_registered;
-    const diffAct = curK.total_activated - oldK.total_activated;
-    const diffOnTrack = curK.total_on_track - oldK.total_on_track;
-
-    grid.innerHTML = `
-      <div class="compare-stat-card">
-        <div class="compare-stat-label">Version Target</div>
-        <div class="compare-stat-val">${snap.version} <span style="font-size: 10px; font-weight: normal;">vs ${DATA.version || 'v1.0'}</span></div>
-      </div>
-      <div class="compare-stat-card">
-        <div class="compare-stat-label">Scholars Delta</div>
-        <div class="compare-stat-val">${curK.total_registered} <span class="compare-delta ${diffReg >= 0 ? 'delta-pos' : 'delta-neg'}">${diffReg >= 0 ? '+' : ''}${diffReg}</span></div>
-      </div>
-      <div class="compare-stat-card">
-        <div class="compare-stat-label">Activated Delta</div>
-        <div class="compare-stat-val">${curK.total_activated} <span class="compare-delta ${diffAct >= 0 ? 'delta-pos' : 'delta-neg'}">${diffAct >= 0 ? '+' : ''}${diffAct}</span></div>
-      </div>
-      <div class="compare-stat-card">
-        <div class="compare-stat-label">On Track Delta</div>
-        <div class="compare-stat-val">${curK.total_on_track} <span class="compare-delta ${diffOnTrack >= 0 ? 'delta-pos' : 'delta-neg'}">${diffOnTrack >= 0 ? '+' : ''}${diffOnTrack}</span></div>
-      </div>
-    `;
-
-    drawer.classList.remove('hidden');
-  };
-
-  // =========================================================================
-  // CONTENT-BASED FILE UPLOAD & PARTIAL UPDATE SYSTEM
-  // =========================================================================
-
-  function setupDropzone() {
-    const dropzone = document.getElementById('dropzone');
-    const fileInput = document.getElementById('fileInput');
-    if (!dropzone || !fileInput) return;
-
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
-      dropzone.addEventListener(evt, preventDefaults, false);
-      document.body.addEventListener(evt, preventDefaults, false);
-    });
-
-    ['dragenter', 'dragover'].forEach(evt => {
-      dropzone.addEventListener(evt, () => dropzone.classList.add('dragover'), false);
-    });
-
-    ['dragleave', 'drop'].forEach(evt => {
-      dropzone.addEventListener(evt, () => dropzone.classList.remove('dragover'), false);
-    });
-
-    dropzone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files), false);
-    fileInput.addEventListener('change', (e) => handleFiles(e.target.files), false);
-  }
-
-  function preventDefaults(e) {
-    e.preventDefault();
-    e.stopPropagation();
-  }
-
-  function handleFiles(files) {
-    if (!files || files.length === 0) return;
-    if (typeof XLSX === 'undefined') {
-      showStatus('SheetJS engine loading, please try again in a moment.', 'error');
-      return;
-    }
-
-    showStatus(`Analyzing and parsing ${files.length} file(s)...`, 'info');
-
-    let processedCount = 0;
-    Array.from(files).forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: 'array' });
-          
-          // Content-based program auto-detection
-          const programType = detectProgramType(workbook);
-          if (programType === 'UNKNOWN') {
-            showStatus(`Error processing ${file.name}: Unable to recognize CS or DA sheet structure. Check file columns.`, 'error');
-            return;
-          }
-
-          if (programType === 'CS') {
-            parseCSWorkbook(workbook);
-            showStatus(`Successfully parsed Cybersecurity data from ${file.name}!`, 'success');
-          } else if (programType === 'DA') {
-            parseDAWorkbook(workbook);
-            showStatus(`Successfully parsed Data Analytics data from ${file.name}!`, 'success');
-          }
-
-          processedCount++;
-          if (processedCount === files.length) {
-            saveSnapshot(`Upload: ${programType} Update`, `File Upload (${files.length} file)`);
-            renderDashboard();
-          }
-        } catch (err) {
-          console.error(err);
-          showStatus(`Error processing ${file.name}: ${err.message}`, 'error');
-        }
-      };
-      reader.readAsArrayBuffer(file);
-    });
-  }
-
-  // Content-Based Detection (Filename-Agnostic)
-  function detectProgramType(wb) {
-    const sheets = wb.SheetNames.map(s => s.toLowerCase());
-
-    // Check Sheet Names
-    if (sheets.some(s => s.includes('cyber') || s.includes('cs'))) return 'CS';
-    if (sheets.some(s => s.includes('data analytic') || s === 'da')) return 'DA';
-
-    // Fallback: Inspect headers of first sheet
-    try {
-      const firstSheet = wb.Sheets[wb.SheetNames[0]];
-      const json = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-      if (json && json.length > 0) {
-        const headers = (json[0] || []).map(h => String(h).toLowerCase());
-        if (headers.includes('lms overall score') || headers.includes('cohort name')) return 'CS';
-        if (headers.includes('ehub class name') || headers.includes('course status (lms)')) return 'DA';
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isHidden = menu.classList.contains('hidden');
+      if (isHidden) {
+        menu.classList.remove('hidden');
+        toggleBtn.setAttribute('aria-expanded', 'true');
+        toggleBtn.querySelector('.hamburger-icon-open')?.classList.add('hidden');
+        toggleBtn.querySelector('.hamburger-icon-close')?.classList.remove('hidden');
+      } else {
+        closeMobileNav();
       }
-    } catch (e) {
-      // ignore
-    }
+    });
 
-    return 'UNKNOWN';
-  }
-
-  function parseCSWorkbook(wb) {
-    const trackerSheetName = wb.SheetNames.find(s => s.toLowerCase().includes('tracker') || s.toLowerCase().includes('cs')) || wb.SheetNames[0];
-    const trackerSheet = wb.Sheets[trackerSheetName];
-    if (!trackerSheet) return;
-
-    const trackerRows = XLSX.utils.sheet_to_json(trackerSheet);
-    if (trackerRows.length > 0) {
-      const csLearnerMap = new Map();
-      trackerRows.forEach(row => {
-        const email = String(row['Email'] || '').trim().toLowerCase();
-        if (!email) return;
-
-        const lmsScore = row['LMS overall score'] != null ? Math.round(parseFloat(row['LMS overall score']) * 10) / 10 : null;
-        const activationStatus = (lmsScore != null && lmsScore > 0) ? 'Activated' : 'Not Activated';
-        let performanceStatus = 'N/A';
-        if (activationStatus === 'Activated' && lmsScore != null) {
-          performanceStatus = lmsScore > 50 ? 'On Track' : 'Lagging Behind';
-        }
-
-        if (!csLearnerMap.has(email)) {
-          csLearnerMap.set(email, {
-            track: 'Cybersecurity',
-            email: email,
-            full_name: String(row['Full name'] || '').trim(),
-            phone: String(row['Phone number'] || '').trim(),
-            country: String(row['Country of residence'] || '').trim(),
-            cohort: String(row['Cohort name'] || '').trim(),
-            has_lms_login: String(row['Has logged into LMS'] || '').toLowerCase() === 'yes',
-            has_ehub_login: String(row['Has logged into ehub'] || '').toLowerCase() === 'yes',
-            is_enrollment_activated: String(row['Is enrollment activated'] || '').toLowerCase() === 'yes',
-            lms_overall_score: lmsScore,
-            num_assignments_total: parseInt(row['No. of assignments'] || 0, 10),
-            num_submissions: parseInt(row['No. of submissions'] || 0, 10),
-            num_passed: parseInt(row['No. of assignment passed'] || 0, 10),
-            assignments_accessed: 1,
-            assignments_submitted: String(row['Is assignment submitted'] || '').toLowerCase() === 'yes' ? 1 : 0,
-            assignments_passed: String(row['Is assignment passed'] || '').toLowerCase() === 'yes' ? 1 : 0,
-            activation_status: activationStatus,
-            performance_status: performanceStatus,
-            raw_health: String(row['Learner classification status'] || '').trim(),
-            payment_status: 'UN Women Sponsored',
-            is_un_sponsored: true,
-            is_graduated: String(row['Is graduated on savannah'] || '').toLowerCase() === 'yes',
-            last_submission_date: null
-          });
-        }
+    if (mobileVersionPill) {
+      mobileVersionPill.addEventListener('click', () => {
+        showVersionHistoryModal();
+        closeMobileNav();
       });
+    }
 
-      // Partial Update: Replace CS learners, preserve DA learners!
-      const nonCS = DATA.learners.filter(l => l.track !== 'Cybersecurity');
-      DATA.learners = [...nonCS, ...Array.from(csLearnerMap.values())];
-      recalculateKPIs();
+    document.addEventListener('click', (e) => {
+      if (!menu.classList.contains('hidden')) {
+        const header = document.querySelector('.top-header');
+        if (header && !header.contains(e.target)) closeMobileNav();
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 768) closeMobileNav();
+    });
+  }
+
+  function closeMobileNav() {
+    const menu = document.getElementById('mobileNavMenu');
+    const toggleBtn = document.getElementById('hamburgerToggleBtn');
+    if (!menu) return;
+    menu.classList.add('hidden');
+    if (toggleBtn) {
+      toggleBtn.setAttribute('aria-expanded', 'false');
+      toggleBtn.querySelector('.hamburger-icon-open')?.classList.remove('hidden');
+      toggleBtn.querySelector('.hamburger-icon-close')?.classList.add('hidden');
     }
   }
 
-  function parseDAWorkbook(wb) {
-    const trackerSheetName = wb.SheetNames.find(s => s.toLowerCase().includes('tracker') || s === 'DA') || wb.SheetNames[0];
-    const trackerSheet = wb.Sheets[trackerSheetName];
-    if (!trackerSheet) return;
-
-    const trackerRows = XLSX.utils.sheet_to_json(trackerSheet);
-    if (trackerRows.length > 0) {
-      const daLearnerMap = new Map();
-      trackerRows.forEach(row => {
-        const email = String(row['Email'] || '').trim().toLowerCase();
-        if (!email) return;
-
-        const isEA = String(row['Is enrollment activated'] || '').toLowerCase() === 'yes';
-        const courseStatus = String(row['Course status (LMS)'] || '').trim().toLowerCase();
-        const ehubClass = String(row['eHub class name'] || '').trim();
-        const numSubmissions = parseInt(row['No. of submissions'] || 0, 10);
-
-        const activationStatus = (isEA && courseStatus === 'validated') ? 'Activated' : isEA ? 'Activated' : 'Not Activated';
-        let performanceStatus = 'N/A';
-        if (activationStatus === 'Activated') {
-          if (numSubmissions >= 3 && ehubClass === 'DA-3_rolling') performanceStatus = 'On Track';
-          else if (numSubmissions >= 3) performanceStatus = 'On Track';
-          else performanceStatus = 'Lagging Behind';
-        }
-
-        if (!daLearnerMap.has(email)) {
-          daLearnerMap.set(email, {
-            track: 'Data Analytics',
-            email: email,
-            full_name: `${row['First name'] || ''} ${row['Last name'] || ''}`.trim(),
-            phone: String(row['Phone number'] || '').trim(),
-            country: String(row['Country of residence'] || '').trim(),
-            cohort: '',
-            has_lms_login: String(row['Has logged into LMS'] || '').toLowerCase() === 'yes',
-            has_ehub_login: String(row['Has logged into eHub'] || '').toLowerCase() === 'yes',
-            is_enrollment_activated: isEA,
-            lms_overall_score: null,
-            num_assignments_total: 0,
-            num_submissions: numSubmissions,
-            num_passed: 0,
-            assignments_accessed: 0,
-            assignments_submitted: numSubmissions,
-            assignments_passed: 0,
-            activation_status: activationStatus,
-            performance_status: performanceStatus,
-            raw_health: String(row['Learner health classification'] || '').trim(),
-            payment_status: 'UN Women Sponsored',
-            is_un_sponsored: true,
-            is_graduated: String(row['Is graduated on savannah'] || '').toLowerCase() === 'yes',
-            last_submission_date: null
-          });
-        }
-      });
-
-      // Partial Update: Replace DA learners, preserve CS learners!
-      const nonDA = DATA.learners.filter(l => l.track !== 'Data Analytics');
-      DATA.learners = [...nonDA, ...Array.from(daLearnerMap.values())];
-      recalculateKPIs();
-    }
-  }
-
-  function recalculateKPIs() {
-    const un = DATA.learners.filter(l => l.is_un_sponsored);
-    const cs = un.filter(l => l.track === 'Cybersecurity');
-    const da = un.filter(l => l.track === 'Data Analytics');
-
-    DATA.kpis = {
-      total_un_seats: 500,
-      total_registered: un.length,
-      cs_registered: cs.length,
-      da_registered: da.length,
-      total_lms_onboarded: un.filter(l => l.has_lms_login).length,
-      total_activated: un.filter(l => l.activation_status === 'Activated').length,
-      total_not_activated: un.filter(l => l.activation_status === 'Not Activated').length,
-      total_on_track: un.filter(l => l.performance_status === 'On Track').length,
-      total_lagging_behind: un.filter(l => l.performance_status === 'Lagging Behind').length,
-      total_performance_na: un.filter(l => l.performance_status === 'N/A').length,
-      total_graduated: un.filter(l => l.is_graduated).length,
-    };
-
-    DATA.funnels = {
-      cs: {
-        un_sponsored_seats: cs.length,
-        lms_onboarded: cs.filter(l => l.has_lms_login).length,
-        activated: cs.filter(l => l.activation_status === 'Activated').length,
-        on_track: cs.filter(l => l.performance_status === 'On Track').length,
-        not_activated: cs.filter(l => l.activation_status === 'Not Activated').length,
-        lagging_behind: cs.filter(l => l.performance_status === 'Lagging Behind').length,
-      },
-      da: {
-        un_sponsored_seats: da.length,
-        lms_onboarded: da.filter(l => l.has_lms_login).length,
-        activated: da.filter(l => l.activation_status === 'Activated').length,
-        on_track: da.filter(l => l.performance_status === 'On Track').length,
-        not_activated: da.filter(l => l.activation_status === 'Not Activated').length,
-        lagging_behind: da.filter(l => l.performance_status === 'Lagging Behind').length,
-      },
-    };
-
-    DATA.generated_at = new Date().toISOString();
-  }
-
-  function showStatus(msg, type) {
-    const el = document.getElementById('uploadStatus');
-    if (el) {
-      el.className = `upload-feedback ${type}`;
-      el.textContent = msg;
-    }
-  }
-
-  // Theme Switcher
   function setupThemeToggle() {
     const toggle = document.getElementById('themeToggle');
     const container = document.getElementById('themeIconContainer');
@@ -1506,11 +1612,19 @@
       container.innerHTML = next === 'light' ? ICONS.sun : ICONS.moon;
       localStorage.setItem('dashboard-theme', next);
 
-      if (DATA) renderHealthChart();
+      renderHealthChart();
+      renderWoWCharts();
     });
   }
 
-  // Helpers — fast string-based escapeHtml (no DOM allocation per call)
+  function showStatus(msg, type) {
+    const el = document.getElementById('uploadStatus');
+    if (el) {
+      el.className = `upload-feedback ${type}`;
+      el.textContent = msg;
+    }
+  }
+
   const _escapeMap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
   const _escapeRe = /[&<>"']/g;
   function escapeHtml(str) {

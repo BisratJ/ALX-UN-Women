@@ -17,7 +17,7 @@
   <link rel="shortcut icon" type="image/png" href="favicon-16x16.png?v=2.2">
   <link rel="apple-touch-icon" href="favicon-16x16.png?v=2.2">
 
-  <link rel="stylesheet" href="styles.css?v=2.1">
+  <link rel="stylesheet" href="styles.css?v=2.2">
 </head>
 <body>
 
@@ -72,7 +72,7 @@
         </button>
       </div>
       <div class="modal-body">
-        <p class="modal-desc">Browse, restore, or compare historical data snapshots saved during administrator updates.</p>
+        <p class="modal-desc">Browse, restore, or compare historical weekly data snapshots saved during administrator updates.</p>
         
         <!-- Active Version Info -->
         <div class="active-version-banner">
@@ -85,7 +85,7 @@
           <table class="smart-table" id="snapshotsTable">
             <thead>
               <tr>
-                <th>Version</th>
+                <th>Week Snapshot</th>
                 <th>Source / Label</th>
                 <th>Timestamp</th>
                 <th>Scholars</th>
@@ -195,16 +195,16 @@
 
     <main class="main-content">
       
-      <!-- Admin File Upload & Version Panel (Admin Mode) -->
+      <!-- Admin Dual File Upload & Version Panel (Admin Mode) -->
       <section class="admin-panel hidden" id="adminBanner">
         <div class="card admin-upload-card">
           <div class="admin-card-head">
             <div>
               <h2 class="admin-headline">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 6px;"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-                Admin Control, Content Detection &amp; Versioning
+                Dual CSV Upload &amp; Weekly Snapshot Control
               </h2>
-              <p class="admin-subtext">Upload updated Excel exports (.xlsx). The system automatically detects CS or DA programs via sheet headers, validates columns, creates a snapshot, and updates metrics safely.</p>
+              <p class="admin-subtext">Upload pre-aggregated weekly summary CSV files for both Cybersecurity (CS) and Data Analytics (DA) programs to update dashboard metrics and record Week-over-Week performance snapshots.</p>
             </div>
             
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -212,25 +212,81 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 <span>Version Snapshots</span>
               </button>
-              <button class="btn btn-outline" id="resetDataBtn" aria-label="Reset to source data">
+              <button class="btn btn-outline" id="resetDataBtn" aria-label="Reset dashboard">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>
-                <span>Reset to Baseline</span>
+                <span>Clear All Data</span>
               </button>
             </div>
           </div>
-          
-          <div class="dropzone-area" id="dropzone">
-            <div class="dropzone-content">
-              <div class="drop-icon-wrapper">
-                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-              </div>
-              <div class="dropzone-main-text">Drag and drop any updated Excel workbooks (.xlsx) here</div>
-              <div class="dropzone-sub-text">Automatic Program Detection: Supports CS or DA export workbooks independently or together. Filenames are agnostic.</div>
-              <input type="file" id="fileInput" accept=".xlsx, .xls" style="display: none;" multiple>
-              <button class="btn btn-brand" onclick="document.getElementById('fileInput').click()" style="margin-top: 12px;">Select File(s)</button>
-            </div>
+
+          <!-- Week Label Meta Input -->
+          <div class="week-label-box" style="margin-bottom: 16px;">
+            <label for="weekLabelInput" class="form-label" style="font-weight: 600; font-size: 12px; margin-bottom: 4px; display: block; color: var(--text-main);">
+              Snapshot Week Label / Report Date
+            </label>
+            <input type="text" id="weekLabelInput" class="form-input" placeholder="e.g. Week 1 - 2026-07-28" style="max-width: 380px;">
           </div>
-          <div class="upload-feedback" id="uploadStatus"></div>
+          
+          <!-- Dual Upload Slots Grid -->
+          <div class="dual-dropzone-grid">
+            
+            <!-- CS Upload Slot -->
+            <div class="dropzone-slot" id="csDropzone">
+              <div class="slot-header">
+                <span class="slot-badge cs-badge">CS</span>
+                <span class="slot-title">Cybersecurity Summary CSV</span>
+              </div>
+              <div class="slot-body">
+                <div class="drop-icon-wrapper small">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="12" y2="12"/><line x1="15" y1="15" x2="12" y2="12"/></svg>
+                </div>
+                <div class="slot-file-name" id="csFileName">W[X]_CS_Summary_[MMDD].csv</div>
+                <div class="slot-status-text" id="csFileStatus">Drag &amp; drop or click to select .csv file</div>
+                <input type="file" id="csFileInput" accept=".csv" style="display: none;">
+                <button class="btn btn-outline btn-sm" onclick="document.getElementById('csFileInput').click()" style="margin-top: 8px;">Select CS CSV</button>
+              </div>
+            </div>
+
+            <!-- DA Upload Slot -->
+            <div class="dropzone-slot" id="daDropzone">
+              <div class="slot-header">
+                <span class="slot-badge da-badge">DA</span>
+                <span class="slot-title">Data Analytics Summary CSV</span>
+              </div>
+              <div class="slot-body">
+                <div class="drop-icon-wrapper small">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="12" y2="12"/><line x1="15" y1="15" x2="12" y2="12"/></svg>
+                </div>
+                <div class="slot-file-name" id="daFileName">W[X]_DA_Summary_[MMDD].csv</div>
+                <div class="slot-status-text" id="daFileStatus">Drag &amp; drop or click to select .csv file</div>
+                <input type="file" id="daFileInput" accept=".csv" style="display: none;">
+                <button class="btn btn-outline btn-sm" onclick="document.getElementById('daFileInput').click()" style="margin-top: 8px;">Select DA CSV</button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Atomic Processing Trigger Action -->
+          <div class="upload-action-row" style="margin-top: 16px; display: flex; align-items: center; justify-content: space-between;">
+            <div class="upload-feedback" id="uploadStatus">Both CSV files required to process dashboard update.</div>
+            <button class="btn btn-brand" id="processCsvBtn" disabled style="min-width: 200px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              Parse &amp; Update Dashboard
+            </button>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Global Program Filter Toolbar -->
+      <section class="section-block program-toolbar-block">
+        <div class="program-toolbar-card">
+          <span class="program-toolbar-label">Program View:</span>
+          <div class="pill-tabs program-tabs" id="programFilterTabs" role="tablist" aria-label="Program View Filter">
+            <button class="pill-tab active" data-program="all" role="tab" aria-selected="true">Combined View (CS + DA)</button>
+            <button class="pill-tab" data-program="cs" role="tab" aria-selected="false">Cybersecurity (CS)</button>
+            <button class="pill-tab" data-program="da" role="tab" aria-selected="false">Data Analytics (DA)</button>
+          </div>
         </div>
       </section>
 
@@ -260,12 +316,7 @@
             <div class="card-header-flex">
               <div>
                 <h2 class="card-title">Learner Journey Funnel</h2>
-                <p class="card-subtitle">UN Sponsored Seats through Activation to On Track</p>
-              </div>
-              <div class="pill-tabs" id="funnelTrackTabs" role="tablist" aria-label="Track filter for funnel">
-                <button class="pill-tab active" data-track="all" role="tab" aria-selected="true">All Tracks</button>
-                <button class="pill-tab" data-track="cs" role="tab" aria-selected="false">CS</button>
-                <button class="pill-tab" data-track="da" role="tab" aria-selected="false">DA</button>
+                <p class="card-subtitle">Enrolled Scholars through Activation to On Track Status</p>
               </div>
             </div>
 
@@ -279,7 +330,7 @@
             <div class="card-header-flex">
               <div>
                 <h2 class="card-title">Learner Classification Breakdown</h2>
-                <p class="card-subtitle">Cohort distribution across Activation and Performance axes</p>
+                <p class="card-subtitle">Cohort distribution across Activation and Performance categories</p>
               </div>
             </div>
 
@@ -297,6 +348,32 @@
             </div>
           </div>
 
+        </div>
+      </section>
+
+      <!-- Week-over-Week (WoW) Historical Performance Trends Section -->
+      <section class="section-block" id="wowSection">
+        <div class="card wow-card">
+          <div class="card-header-flex">
+            <div>
+              <h2 class="card-title">Week-over-Week (WoW) Historical Performance</h2>
+              <p class="card-subtitle">Comparative trend analysis tracking activation rate &amp; performance across weekly snapshots</p>
+            </div>
+            <div class="wow-controls" style="display: flex; gap: 8px;">
+              <span class="version-tag-pill" id="wowSnapshotsCount">0 Snapshots Saved</span>
+            </div>
+          </div>
+
+          <div class="grid-split-2 grid-equal-height" style="margin-top: 16px;">
+            <div class="wow-chart-wrapper" style="position: relative; min-height: 280px; width: 100%;">
+              <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 10px; color: var(--text-main);">Activation &amp; On-Track Learner Trends</h3>
+              <canvas id="wowTrendChart"></canvas>
+            </div>
+            <div class="wow-chart-wrapper" style="position: relative; min-height: 280px; width: 100%;">
+              <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 10px; color: var(--text-main);">Program Comparison (CS vs DA On-Track Volume)</h3>
+              <canvas id="wowProgramChart"></canvas>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -323,11 +400,11 @@
               <div class="method-rules">
                 <div class="rule-group">
                   <span class="rule-track-tag">Data Analytics</span>
-                  <span class="rule-text">Activated enrollment &amp; verified system access</span>
+                  <span class="rule-text">LMS status validated / active status in tracker</span>
                 </div>
                 <div class="rule-group">
                   <span class="rule-track-tag">Cyber Security</span>
-                  <span class="rule-text">Logged into learning portal &amp; actively engaged</span>
+                  <span class="rule-text">LMS Overall Score &gt; 0%</span>
                 </div>
               </div>
             </div>
@@ -341,11 +418,11 @@
               <div class="method-rules">
                 <div class="rule-group">
                   <span class="rule-track-tag">Data Analytics</span>
-                  <span class="rule-text">Pending enrollment completion or portal validation</span>
+                  <span class="rule-text">Class WALX_C#1 / Pending activation</span>
                 </div>
                 <div class="rule-group">
                   <span class="rule-track-tag">Cyber Security</span>
-                  <span class="rule-text">Registered but not yet logged in or started</span>
+                  <span class="rule-text">LMS Overall Score = 0%</span>
                 </div>
               </div>
             </div>
@@ -359,29 +436,29 @@
               <div class="method-rules">
                 <div class="rule-group">
                   <span class="rule-track-tag">Data Analytics</span>
-                  <span class="rule-text">Steady progress with <strong>3+ submissions</strong> in rolling modules</span>
+                  <span class="rule-text">Class status DA-3_rolling or level 4+</span>
                 </div>
                 <div class="rule-group">
                   <span class="rule-track-tag">Cyber Security</span>
-                  <span class="rule-text">Strong performance maintaining score <strong>above 50%</strong></span>
+                  <span class="rule-text">LMS Overall Score &gt; 50%</span>
                 </div>
               </div>
             </div>
 
-            <!-- Lagging Behind Card -->
+            <!-- Off Track Card -->
             <div class="methodology-full-card card-lagging">
               <div class="method-card-head">
                 <span class="status-indicator-dot dot-lagging"></span>
-                <span class="method-badge badge-lagging">Lagging Behind</span>
+                <span class="method-badge badge-lagging">Off Track</span>
               </div>
               <div class="method-rules">
                 <div class="rule-group">
                   <span class="rule-track-tag">Data Analytics</span>
-                  <span class="rule-text">Requires outreach support with <strong>1–2 submissions</strong></span>
+                  <span class="rule-text">Class WALX_C#1, DA-1_rolling, DA-2_rolling</span>
                 </div>
                 <div class="rule-group">
                   <span class="rule-track-tag">Cyber Security</span>
-                  <span class="rule-text">Needs assistance to boost score (currently <strong>1% to 50%</strong>)</span>
+                  <span class="rule-text">LMS Overall Score between 1% and 50%</span>
                 </div>
               </div>
             </div>
@@ -395,7 +472,7 @@
           <div class="table-header-bar">
             <div>
               <h2 class="card-title">Learner Directory &amp; Action Matrix</h2>
-              <p class="card-subtitle">Filter by classification status, time activity, and export target lists for intervention outreach</p>
+              <p class="card-subtitle">Filter by classification status and export target lists for intervention outreach</p>
             </div>
             
             <button class="btn btn-brand" id="exportCsvBtn" aria-label="Export learner list to CSV">
@@ -410,7 +487,7 @@
               <span class="search-prefix-icon">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               </span>
-              <input type="text" id="searchInput" placeholder="Search learner name, email, or phone number..." autocomplete="off">
+              <input type="text" id="searchInput" placeholder="Search learner email or track..." autocomplete="off">
               <button class="clear-search-btn hidden" id="clearSearchBtn" title="Clear search" aria-label="Clear search">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
@@ -426,9 +503,9 @@
 
               <!-- Performance Filter Chips -->
               <div class="filter-chips" id="performanceChips" role="radiogroup" aria-label="Filter by performance status">
-                <button class="chip active" data-performance="" role="radio" aria-checked="true">All Performance</button>
+                <button class="chip active" data-performance="" role="radio" aria-checked="true">All Status</button>
                 <button class="chip chip-on-track" data-performance="On Track" role="radio" aria-checked="false">On Track</button>
-                <button class="chip chip-lagging" data-performance="Lagging Behind" role="radio" aria-checked="false">Lagging</button>
+                <button class="chip chip-lagging" data-performance="Off Track" role="radio" aria-checked="false">Off Track</button>
               </div>
 
               <!-- Track Select Filter -->
@@ -436,15 +513,6 @@
                 <option value="">All Tracks</option>
                 <option value="Cybersecurity">Cybersecurity (CS)</option>
                 <option value="Data Analytics">Data Analytics (DA)</option>
-              </select>
-
-              <!-- Time / Activity Filter -->
-              <select class="custom-select" id="filterTime" aria-label="Filter by Time / Activity">
-                <option value="">All Time Periods</option>
-                <option value="7">Active (Last 7 Days)</option>
-                <option value="30">Active (Last 30 Days)</option>
-                <option value="90">Active (Last 90 Days)</option>
-                <option value="inactive">Inactive / No Activity</option>
               </select>
             </div>
           </div>
@@ -454,13 +522,11 @@
             <table class="smart-table" id="learnerTable" role="table">
               <thead>
                 <tr>
-                  <th data-sort="full_name" class="th-sortable" role="columnheader" aria-sort="none">Learner <span class="sort-icon">&#8597;</span></th>
+                  <th data-sort="email" class="th-sortable" role="columnheader" aria-sort="none">Learner Email <span class="sort-icon">&#8597;</span></th>
                   <th data-sort="track" class="th-sortable" role="columnheader" aria-sort="none">Track <span class="sort-icon">&#8597;</span></th>
-                  <th data-sort="email" class="th-sortable" role="columnheader" aria-sort="none">Contact <span class="sort-icon">&#8597;</span></th>
-                  <th data-sort="lms_overall_score" class="th-sortable" role="columnheader" aria-sort="none">LMS Score <span class="sort-icon">&#8597;</span></th>
+                  <th data-sort="detail" class="th-sortable" role="columnheader" aria-sort="none">Program Detail <span class="sort-icon">&#8597;</span></th>
                   <th data-sort="activation_status" class="th-sortable" role="columnheader" aria-sort="none">Activation <span class="sort-icon">&#8597;</span></th>
-                  <th data-sort="performance_status" class="th-sortable" role="columnheader" aria-sort="none">Performance <span class="sort-icon">&#8597;</span></th>
-                  <th data-sort="last_submission_date" class="th-sortable" role="columnheader" aria-sort="none">Last Active <span class="sort-icon">&#8597;</span></th>
+                  <th data-sort="performance_status" class="th-sortable" role="columnheader" aria-sort="none">Performance Status <span class="sort-icon">&#8597;</span></th>
                 </tr>
               </thead>
               <tbody id="learnerTableBody">
@@ -499,8 +565,6 @@
   <!-- CDNs: Chart.js (critical) + Motion One (animations) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/motion@10.18.0/dist/motion.js" async></script>
-  <script src="app.js?v=2.1"></script>
-  <!-- SheetJS: Lazy-loaded (only needed for Admin file uploads, ~470KB) -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+  <script src="app.js?v=2.2"></script>
 </body>
 </html>
