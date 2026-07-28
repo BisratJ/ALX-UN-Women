@@ -1971,15 +1971,6 @@ select:focus-visible {
   flex-wrap: wrap;
 }
 
-/* WoW Section Cards */
-.wow-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--radius-xl);
-  padding: 20px;
-  box-shadow: var(--shadow-sm);
-}
-
 .track-tag.cs {
   background: rgba(59, 130, 246, 0.15);
   color: #3B82F6;

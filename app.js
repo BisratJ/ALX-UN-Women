@@ -1,11 +1,11 @@
 /**
- * ALX Enterprise x UN Women: Learner Operations & Analytics Dashboard Logic (v2.2)
+ * ALX Enterprise x UN Women: Learner Operations & Analytics Dashboard (v4.0)
  * ==========================================================================
- * - Dual CSV Upload Workflow (CS & DA Summary CSV Ingestion)
- * - Atomic File Validation & Strict Schema Enforcement
- * - Week-over-Week (WoW) Historical Snapshot & Persistence Engine
- * - Dynamic Program Filtering (Combined / CS / DA Views)
- * - Accessible, High-Performance UI (DocumentFragment rendering, Chart.js, Motion)
+ * - Dual CSV upload workflow (CS & DA summary ingestion)
+ * - File validation with strict schema checks
+ * - Dataset version snapshots and restore (localStorage)
+ * - Program filtering (Combined / CS / DA views)
+ * - Accessible, fast UI (DocumentFragment rendering, Chart.js, Motion One)
  */
 
 (function () {
@@ -30,8 +30,6 @@
   let sortDirection = 'asc';
 
   let healthChartInstance = null;
-  let wowTrendChartInstance = null;
-  let wowProgramChartInstance = null;
   let searchDebounceTimer = null;
 
   // Staged Upload Slots State
@@ -198,7 +196,6 @@
     renderKPIs();
     renderFunnels();
     renderHealthChart();
-    renderWoWCharts();
     setupTable();
     setTimeout(() => {
       Motion.fadeUp('.section-block', { stagger: 0.08, duration: 0.4 });
@@ -513,143 +510,6 @@
   }
 
   // =========================================================================
-  // WEEK-OVER-WEEK (WoW) TREND CHARTS
-  // =========================================================================
-
-  function renderWoWCharts() {
-    const trendCanvas = document.getElementById('wowTrendChart');
-    const programCanvas = document.getElementById('wowProgramChart');
-    const countBadge = document.getElementById('wowSnapshotsCount');
-    if (!trendCanvas || !programCanvas) return;
-
-    const snapshots = getSnapshots();
-    if (countBadge) countBadge.textContent = `${snapshots.length} Snapshot(s) Saved`;
-
-    if (snapshots.length === 0) {
-      if (wowTrendChartInstance) wowTrendChartInstance.destroy();
-      if (wowProgramChartInstance) wowProgramChartInstance.destroy();
-      return;
-    }
-
-    // Chronological order (oldest to newest)
-    const chronoSnaps = [...snapshots].reverse();
-    const labels = chronoSnaps.map(s => s.week_label || s.version);
-
-    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
-    const textColor = isDark ? '#9E9EA4' : '#636366';
-    const gridColor = isDark ? '#313135' : '#E3E3E8';
-
-    // Chart 1: Activation & On-Track Volume over time
-    const activatedData = chronoSnaps.map(s => {
-      const k = activeProgramView === 'cs' ? s.kpis.cs : activeProgramView === 'da' ? s.kpis.da : s.kpis.combined;
-      return k ? k.total_activated : 0;
-    });
-
-    const onTrackData = chronoSnaps.map(s => {
-      const k = activeProgramView === 'cs' ? s.kpis.cs : activeProgramView === 'da' ? s.kpis.da : s.kpis.combined;
-      return k ? k.total_on_track : 0;
-    });
-
-    if (typeof Chart !== 'undefined') {
-      if (wowTrendChartInstance) wowTrendChartInstance.destroy();
-
-      wowTrendChartInstance = new Chart(trendCanvas, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [
-            {
-              label: 'Activated Scholars',
-              data: activatedData,
-              borderColor: '#4ADE80',
-              backgroundColor: 'rgba(74, 222, 128, 0.1)',
-              tension: 0.3,
-              fill: true,
-              pointRadius: 4,
-            },
-            {
-              label: 'On-Track Scholars',
-              data: onTrackData,
-              borderColor: '#60A5FA',
-              backgroundColor: 'rgba(96, 165, 250, 0.1)',
-              tension: 0.3,
-              fill: true,
-              pointRadius: 4,
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { labels: { color: textColor, font: { family: 'Poppins', size: 11, weight: '500' } } },
-            tooltip: {
-              backgroundColor: isDark ? '#212124' : '#FFFFFF',
-              titleColor: isDark ? '#FFFFFF' : '#1C1C1E',
-              bodyColor: isDark ? '#9E9EA4' : '#636366',
-              borderColor: isDark ? '#313135' : '#E3E3E8',
-              borderWidth: 1,
-              padding: 10,
-              titleFont: { family: 'Poppins', size: 12, weight: '600' }
-            }
-          },
-          scales: {
-            x: { ticks: { color: textColor, font: { family: 'Poppins', size: 11 } }, grid: { color: gridColor } },
-            y: { beginAtZero: true, ticks: { color: textColor, font: { family: 'Poppins', size: 11 } }, grid: { color: gridColor } }
-          }
-        }
-      });
-
-      // Chart 2: Program Comparison (CS vs DA On-Track Volume)
-      const csOnTrack = chronoSnaps.map(s => s.kpis.cs ? s.kpis.cs.total_on_track : 0);
-      const daOnTrack = chronoSnaps.map(s => s.kpis.da ? s.kpis.da.total_on_track : 0);
-
-      if (wowProgramChartInstance) wowProgramChartInstance.destroy();
-
-      wowProgramChartInstance = new Chart(programCanvas, {
-        type: 'bar',
-        data: {
-          labels: labels,
-          datasets: [
-            {
-              label: 'Cybersecurity (CS) On-Track',
-              data: csOnTrack,
-              backgroundColor: '#3B82F6',
-              borderRadius: 4,
-            },
-            {
-              label: 'Data Analytics (DA) On-Track',
-              data: daOnTrack,
-              backgroundColor: '#8B5CF6',
-              borderRadius: 4,
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { labels: { color: textColor, font: { family: 'Poppins', size: 11, weight: '500' } } },
-            tooltip: {
-              backgroundColor: isDark ? '#212124' : '#FFFFFF',
-              titleColor: isDark ? '#FFFFFF' : '#1C1C1E',
-              bodyColor: isDark ? '#9E9EA4' : '#636366',
-              borderColor: isDark ? '#313135' : '#E3E3E8',
-              borderWidth: 1,
-              padding: 10,
-              titleFont: { family: 'Poppins', size: 12, weight: '600' }
-            }
-          },
-          scales: {
-            x: { ticks: { color: textColor, font: { family: 'Poppins', size: 11 } }, grid: { color: gridColor } },
-            y: { beginAtZero: true, ticks: { color: textColor, font: { family: 'Poppins', size: 11 } }, grid: { color: gridColor } }
-          }
-        }
-      });
-    }
-  }
-
-  // =========================================================================
   // PROGRAM VIEW FILTERING
   // =========================================================================
 
@@ -851,7 +711,7 @@
 
   function executeDualCsvProcess() {
     if (!stagedCS || !stagedDA) {
-      showStatus('Atomic lock: Both CS and DA summary CSV files are required!', 'error');
+      showStatus('Both the CS and DA summary CSV files are required to continue.', 'error');
       return;
     }
 
@@ -886,7 +746,7 @@
 
     // Render dashboard
     renderDashboard();
-    showStatus(`Successfully ingested ${allLearners.length} scholars (${csLearners.length} CS, ${daLearners.length} DA) for ${weekLabel}!`, 'success');
+    showStatus(`Loaded ${allLearners.length} scholars (${csLearners.length} CS, ${daLearners.length} DA) for ${weekLabel}.`, 'success');
   }
 
   function parseCsRow(row) {
@@ -1083,8 +943,7 @@
           saveSnapshot(label, 'Manual Save', DATA);
           renderSnapshotTable();
           renderTimestamp();
-          renderWoWCharts();
-          showStatus('Snapshot created successfully!', 'success');
+          showStatus('Snapshot saved.', 'success');
         }
       });
     }
@@ -1146,7 +1005,7 @@
       localStorage.setItem(STORAGE_CUSTOM_DATA, JSON.stringify(DATA));
       renderDashboard();
       showVersionHistoryModal();
-      showStatus(`Restored data snapshot "${snap.week_label}"!`, 'success');
+      showStatus(`Restored snapshot "${snap.week_label}".`, 'success');
     }
   };
 
@@ -1678,7 +1537,6 @@
       localStorage.setItem('dashboard-theme', next);
 
       renderHealthChart();
-      renderWoWCharts();
     });
   }
 
