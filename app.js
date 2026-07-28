@@ -12,8 +12,15 @@
   'use strict';
 
   // Storage Keys
-  const STORAGE_CUSTOM_DATA = 'alx_unwomen_custom_data_v2';
-  const STORAGE_SNAPSHOTS = 'alx_unwomen_snapshots_v2';
+  const STORAGE_CUSTOM_DATA = 'alx_unwomen_custom_data_v3';
+  const STORAGE_SNAPSHOTS = 'alx_unwomen_snapshots_v3';
+  const STORAGE_ACTIVE = 'alx_unwomen_active_snapshot_v3';
+
+  // Id of the snapshot currently loaded as the active dataset
+  let activeSnapshotId = null;
+
+  // Registered cohort sizes (fixed enrolment totals per program)
+  const REGISTERED_TOTALS = { cs: 185, da: 325, combined: 510 };
 
   // Global Dashboard State
   let DATA = null; // Active dataset object
@@ -124,8 +131,16 @@
       console.warn('Failed to parse cached dataset from localStorage', e);
     }
 
+    activeSnapshotId = localStorage.getItem(STORAGE_ACTIVE) || null;
+
     // Auto-create initial baseline dataset & snapshot if empty
     ensureBaselineSnapshot();
+
+    // If we have snapshots but no known active id, default to the newest
+    if (!activeSnapshotId) {
+      const snaps = getSnapshots();
+      if (snaps.length) setActiveSnapshot(snaps[0].id);
+    }
 
     // Auto-fill Week Label input default if blank
     const weekInput = document.getElementById('weekLabelInput');
@@ -156,22 +171,22 @@
             on_track_rate: '8.0',
           },
           cs: {
-            total_registered: 75,
+            total_registered: 185,
             total_activated: 22,
-            total_not_activated: 53,
+            total_not_activated: 163,
             total_on_track: 9,
             total_off_track: 66,
-            activation_rate: '29.3',
-            on_track_rate: '12.0',
+            activation_rate: '11.9',
+            on_track_rate: '4.9',
           },
           da: {
-            total_registered: 435,
+            total_registered: 325,
             total_activated: 171,
-            total_not_activated: 264,
+            total_not_activated: 154,
             total_on_track: 32,
             total_off_track: 210,
-            activation_rate: '39.3',
-            on_track_rate: '7.4',
+            activation_rate: '52.6',
+            on_track_rate: '9.8',
           }
         },
         learners: []
@@ -219,7 +234,7 @@
     });
     
     const lastUpdatedEl = document.getElementById('lastUpdated');
-    if (lastUpdatedEl) lastUpdatedEl.textContent = `Sync: ${formatted}`;
+    if (lastUpdatedEl) lastUpdatedEl.textContent = `Last Updated: ${formatted}`;
 
     const footerTs = document.getElementById('footerTimestamp');
     if (footerTs) footerTs.textContent = formatted;
@@ -274,12 +289,16 @@
     const notActivatedRate = reg > 0 ? ((k.total_not_activated / reg) * 100).toFixed(1) : '0.0';
     const offTrackRate = reg > 0 ? ((k.total_off_track / reg) * 100).toFixed(1) : '0.0';
 
+    const cohortLabel = activeProgramView === 'cs' ? 'Cybersecurity'
+      : activeProgramView === 'da' ? 'Data Analytics'
+      : 'all programs';
+
     const kpis = [
       {
         id: 'kpi-registered',
-        label: 'Total Registered Scholars',
+        label: 'Total Learners',
         value: k.total_registered,
-        detail: `${activeProgramView.toUpperCase()} cohort size`,
+        detail: `Enrolled across ${cohortLabel}`,
         color: 'blue',
         icon: ICONS.target,
         filterActivation: '',
@@ -287,9 +306,9 @@
       },
       {
         id: 'kpi-activated',
-        label: 'Activated Scholars',
+        label: 'Activated Learners',
         value: k.total_activated,
-        detail: `${activationRate}% activation rate`,
+        detail: `${activationRate}% of learners have started`,
         color: 'green',
         icon: ICONS.zap,
         filterActivation: 'Activated',
@@ -297,9 +316,9 @@
       },
       {
         id: 'kpi-ontrack',
-        label: 'On Track Scholars',
+        label: 'On Track Learners',
         value: k.total_on_track,
-        detail: `${onTrackRate}% meeting milestone targets`,
+        detail: `${onTrackRate}% meeting their milestones`,
         color: 'blue',
         icon: ICONS.check,
         filterActivation: '',
@@ -307,9 +326,9 @@
       },
       {
         id: 'kpi-not-activated',
-        label: 'Not Activated',
+        label: 'Pending Activation',
         value: k.total_not_activated,
-        detail: `${notActivatedRate}% pending activation`,
+        detail: `${notActivatedRate}% yet to begin`,
         color: 'red',
         icon: ICONS.minus,
         filterActivation: 'Not Activated',
@@ -317,9 +336,9 @@
       },
       {
         id: 'kpi-offtrack',
-        label: 'Off Track',
+        label: 'Needs Attention',
         value: k.total_off_track,
-        detail: `${offTrackRate}% requiring intervention`,
+        detail: `${offTrackRate}% need support to catch up`,
         color: 'orange',
         icon: ICONS.alert,
         filterActivation: '',
@@ -387,9 +406,9 @@
     const maxVal = k.total_registered || 1;
 
     const steps = [
-      { label: 'Registered Scholars', val: k.total_registered },
-      { label: 'Activated Scholars', val: k.total_activated },
-      { label: 'On Track Scholars', val: k.total_on_track },
+      { label: 'Registered Learners', val: k.total_registered },
+      { label: 'Activated Learners', val: k.total_activated },
+      { label: 'On Track Learners', val: k.total_on_track },
     ];
 
     funnelDisplay.innerHTML = steps.map(step => {
@@ -724,9 +743,9 @@
     const allLearners = [...csLearners, ...daLearners];
 
     // Build KPIs
-    const csKpis = computeCohortKpis(csLearners, false);
-    const daKpis = computeCohortKpis(daLearners, false);
-    const combinedKpis = computeCohortKpis(allLearners, true);
+    const csKpis = computeCohortKpis(csLearners, 'cs');
+    const daKpis = computeCohortKpis(daLearners, 'da');
+    const combinedKpis = computeCohortKpis(allLearners, 'combined');
 
     const newDataset = {
       week_label: weekLabel,
@@ -746,7 +765,7 @@
 
     // Render dashboard
     renderDashboard();
-    showStatus(`Loaded ${allLearners.length} scholars (${csLearners.length} CS, ${daLearners.length} DA) for ${weekLabel}.`, 'success');
+    showStatus(`Loaded ${allLearners.length} learners (${csLearners.length} CS, ${daLearners.length} DA) for ${weekLabel}.`, 'success');
   }
 
   function parseCsRow(row) {
@@ -815,12 +834,14 @@
     };
   }
 
-  function computeCohortKpis(learners, isCombined = false) {
-    const total = isCombined ? 510 : learners.length;
+  function computeCohortKpis(learners, cohort) {
+    // Registered total is the fixed enrolment size for the cohort, so
+    // "Pending Activation" reflects everyone who has not yet activated.
+    const total = REGISTERED_TOTALS[cohort] || learners.length;
     const activated = learners.filter(l => l.activation_status === 'Activated').length;
-    const notActivated = isCombined ? Math.max(0, 510 - activated) : learners.filter(l => l.activation_status === 'Not Activated').length;
+    const notActivated = Math.max(0, total - activated);
     const onTrack = learners.filter(l => l.status === 'On Track').length;
-    const offTrack = isCombined ? Math.max(0, 510 - onTrack) : learners.filter(l => l.status === 'Off Track').length;
+    const offTrack = learners.filter(l => l.status === 'Off Track').length;
 
     return {
       total_registered: total,
@@ -893,18 +914,39 @@
     }
   }
 
+  function persistSnapshots(snapshots) {
+    try {
+      localStorage.setItem(STORAGE_SNAPSHOTS, JSON.stringify(snapshots));
+    } catch (e) {
+      console.warn('LocalStorage quota exceeded for snapshot save.', e);
+    }
+  }
+
+  function setActiveSnapshot(id) {
+    activeSnapshotId = id;
+    if (id) localStorage.setItem(STORAGE_ACTIVE, id);
+    else localStorage.removeItem(STORAGE_ACTIVE);
+  }
+
+  function deepClone(obj) {
+    return typeof structuredClone === 'function' ? structuredClone(obj) : JSON.parse(JSON.stringify(obj));
+  }
+
   function saveSnapshot(weekLabel, source, datasetToSave) {
     const dataset = datasetToSave || DATA;
-    if (!dataset) return;
+    if (!dataset) return null;
 
+    const now = new Date().toISOString();
     const snapshots = getSnapshots();
     const snap = {
       id: `snap_${Date.now()}`,
       week_label: weekLabel,
-      timestamp: new Date().toISOString(),
+      created_at: now,
+      updated_at: now,
+      timestamp: now, // retained for backward compatibility
       source: source,
-      kpis: typeof structuredClone === 'function' ? structuredClone(dataset.kpis) : JSON.parse(JSON.stringify(dataset.kpis)),
-      data: typeof structuredClone === 'function' ? structuredClone(dataset) : JSON.parse(JSON.stringify(dataset)),
+      kpis: deepClone(dataset.kpis),
+      data: deepClone(dataset),
     };
 
     snapshots.unshift(snap);
@@ -912,12 +954,14 @@
     // Keep max 20 snapshots
     if (snapshots.length > 20) snapshots.pop();
 
+    persistSnapshots(snapshots);
     try {
-      localStorage.setItem(STORAGE_SNAPSHOTS, JSON.stringify(snapshots));
       localStorage.setItem(STORAGE_CUSTOM_DATA, JSON.stringify(dataset));
     } catch (e) {
-      console.warn('LocalStorage quota exceeded for snapshot save.', e);
+      console.warn('LocalStorage quota exceeded for dataset save.', e);
     }
+    setActiveSnapshot(snap.id);
+    return snap;
   }
 
   function setupVersionHistoryModal() {
@@ -925,6 +969,7 @@
     const closeBtn = document.getElementById('versionModalClose');
     const doneBtn = document.getElementById('closeVersionModalBtn');
     const createBtn = document.getElementById('createSnapshotBtn');
+    const tbody = document.getElementById('snapshotsTableBody');
 
     if (!modal) return;
 
@@ -932,25 +977,78 @@
 
     if (closeBtn) closeBtn.addEventListener('click', hide);
     if (doneBtn) doneBtn.addEventListener('click', hide);
-    if (createBtn) {
-      createBtn.addEventListener('click', () => {
-        if (!DATA) {
-          showStatus('No dataset active to snapshot.', 'error');
+    if (createBtn) createBtn.addEventListener('click', createManualSnapshot);
+
+    // Contextual (kebab) action menus: open/close via delegation
+    if (tbody) {
+      tbody.addEventListener('click', (e) => {
+        const kebab = e.target.closest('.row-menu-btn');
+        if (kebab) {
+          e.stopPropagation();
+          const menu = kebab.closest('.row-menu');
+          const wasOpen = menu.classList.contains('open');
+          closeAllRowMenus();
+          if (!wasOpen) openRowMenu(menu, kebab);
           return;
         }
-        const label = prompt('Enter a label for this manual snapshot:', DATA.week_label || 'Manual Snapshot');
-        if (label) {
-          saveSnapshot(label, 'Manual Save', DATA);
-          renderSnapshotTable();
-          renderTimestamp();
-          showStatus('Snapshot saved.', 'success');
+        const action = e.target.closest('[data-menu-action]');
+        if (action) {
+          const { menuAction, snapId } = action.dataset;
+          closeAllRowMenus();
+          if (menuAction === 'rename') renameSnapshot(snapId);
+          else if (menuAction === 'restore') restoreSnapshot(snapId);
+          else if (menuAction === 'delete') deleteSnapshot(snapId);
         }
       });
     }
 
+    document.addEventListener('click', closeAllRowMenus);
+
     modal.addEventListener('click', (e) => {
       if (e.target === modal) hide();
     });
+  }
+
+  // Position the dropdown with fixed coordinates so it is never clipped by the
+  // modal's overflow, and flip it upward when close to the viewport bottom.
+  function openRowMenu(menu, btn) {
+    const dd = menu.querySelector('.row-menu-dropdown');
+    if (!dd) return;
+    menu.classList.add('open');
+    const r = btn.getBoundingClientRect();
+    dd.style.position = 'fixed';
+    dd.style.right = 'auto';
+    const width = dd.offsetWidth || 168;
+    const height = dd.offsetHeight || 132;
+    const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+    let left = Math.max(8, r.right - width);
+    let top = r.bottom + 4;
+    // Flip upward only when we know the viewport height and there isn't room below
+    if (vh && top + height > vh - 8) top = Math.max(8, r.top - height - 4);
+    dd.style.left = `${left}px`;
+    dd.style.top = `${top}px`;
+  }
+
+  function closeAllRowMenus() {
+    document.querySelectorAll('.row-menu.open').forEach(m => {
+      m.classList.remove('open');
+      const dd = m.querySelector('.row-menu-dropdown');
+      if (dd) { dd.style.position = ''; dd.style.left = ''; dd.style.top = ''; dd.style.right = ''; }
+    });
+  }
+
+  function createManualSnapshot() {
+    if (!DATA) {
+      showStatus('There is no active dataset to save yet.', 'error');
+      return;
+    }
+    const label = prompt('Name this version:', DATA.week_label || 'Manual Snapshot');
+    if (label && label.trim()) {
+      saveSnapshot(label.trim(), 'Manual Save', DATA);
+      renderSnapshotTable();
+      renderTimestamp();
+      showStatus(`Saved version "${label.trim()}".`, 'success');
+    }
   }
 
   function showVersionHistoryModal() {
@@ -960,6 +1058,14 @@
     modal.classList.remove('hidden');
   }
 
+  function formatSnapDate(iso) {
+    if (!iso) return '<span class="snap-date-day">-</span>';
+    const d = new Date(iso);
+    const day = d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    return `<span class="snap-date-day">${day}</span><span class="snap-date-time">${time}</span>`;
+  }
+
   function renderSnapshotTable() {
     const tbody = document.getElementById('snapshotsTableBody');
     if (!tbody) return;
@@ -967,27 +1073,66 @@
     const snapshots = getSnapshots();
 
     if (snapshots.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">No historical snapshots saved. Upload weekly CSVs to create snapshots.</td></tr>`;
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6">
+            <div class="snapshot-empty-state">
+              <div class="empty-icon">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              </div>
+              <div class="empty-title">No saved versions yet</div>
+              <div class="empty-sub">Save the current dashboard as a version to track changes over time and restore it whenever you need to.</div>
+              <button class="btn btn-brand" id="emptyStateSaveBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                <span>Save Current Snapshot</span>
+              </button>
+            </div>
+          </td>
+        </tr>`;
+      const emptyBtn = document.getElementById('emptyStateSaveBtn');
+      if (emptyBtn) emptyBtn.addEventListener('click', createManualSnapshot);
       return;
     }
 
     tbody.innerHTML = snapshots.map(snap => {
-      const isCurrent = DATA && DATA.week_label === snap.week_label;
-      const dateStr = new Date(snap.timestamp).toLocaleString();
-      const scholars = snap.kpis.combined ? snap.kpis.combined.total_registered : 0;
-      const act = snap.kpis.combined ? snap.kpis.combined.total_activated : 0;
+      const isActive = snap.id === activeSnapshotId;
+      const created = formatSnapDate(snap.created_at || snap.timestamp);
+      const updated = formatSnapDate(snap.updated_at || snap.timestamp);
+      const learners = snap.kpis && snap.kpis.combined ? snap.kpis.combined.total_registered : 0;
 
       return `
-        <tr style="${isCurrent ? 'background: var(--bg-card-hover); font-weight: 600;' : ''}">
-          <td><span class="version-tag-pill">${escapeHtml(snap.week_label)} ${isCurrent ? '✓ Active' : ''}</span></td>
-          <td>${escapeHtml(snap.source || 'Upload')}</td>
-          <td style="font-size: 11px; color: var(--text-sub);">${dateStr}</td>
-          <td>${scholars}</td>
-          <td><span style="color: var(--status-activated);">${act}</span></td>
+        <tr class="${isActive ? 'snapshot-row-active' : ''}">
           <td>
-            <div style="display: flex; gap: 4px;">
-              ${!isCurrent ? `<button class="btn btn-outline" onclick="window.restoreSnapshot('${snap.id}')" style="padding: 2px 6px; font-size: 10px;">Restore</button>` : ''}
-              <button class="btn btn-outline" onclick="window.compareSnapshot('${snap.id}')" style="padding: 2px 6px; font-size: 10px;">Compare</button>
+            <div class="snap-name">${escapeHtml(snap.week_label)}</div>
+            <div class="snap-source">${escapeHtml(snap.source || 'Upload')}</div>
+          </td>
+          <td class="snap-date">${created}</td>
+          <td class="snap-date">${updated}</td>
+          <td class="snap-count">${learners}</td>
+          <td>
+            ${isActive
+              ? '<span class="status-chip status-chip-active"><span class="status-badge-dot"></span>Active</span>'
+              : '<span class="status-chip status-chip-idle">Saved</span>'}
+          </td>
+          <td class="td-actions">
+            <div class="row-menu">
+              <button class="row-menu-btn" aria-label="Version actions" aria-haspopup="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
+              </button>
+              <div class="row-menu-dropdown" role="menu">
+                <button class="row-menu-item" data-menu-action="rename" data-snap-id="${snap.id}" role="menuitem">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
+                  Rename
+                </button>
+                <button class="row-menu-item" data-menu-action="restore" data-snap-id="${snap.id}" role="menuitem" ${isActive ? 'disabled' : ''}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+                  Restore
+                </button>
+                <button class="row-menu-item row-menu-item-danger" data-menu-action="delete" data-snap-id="${snap.id}" role="menuitem">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  Delete
+                </button>
+              </div>
             </div>
           </td>
         </tr>
@@ -995,55 +1140,80 @@
     }).join('');
   }
 
-  window.restoreSnapshot = function (snapId) {
+  function restoreSnapshot(snapId) {
     const snapshots = getSnapshots();
     const snap = snapshots.find(s => s.id === snapId);
     if (!snap) return;
 
-    if (confirm(`Restore snapshot "${snap.week_label}"?`)) {
-      DATA = JSON.parse(JSON.stringify(snap.data));
+    if (confirm(`Restore version "${snap.week_label}" as the active dataset?`)) {
+      DATA = deepClone(snap.data);
       localStorage.setItem(STORAGE_CUSTOM_DATA, JSON.stringify(DATA));
+      setActiveSnapshot(snap.id);
       renderDashboard();
-      showVersionHistoryModal();
-      showStatus(`Restored snapshot "${snap.week_label}".`, 'success');
+      renderSnapshotTable();
+      showStatus(`Restored version "${snap.week_label}".`, 'success');
     }
-  };
+  }
 
-  window.compareSnapshot = function (snapId) {
+  function renameSnapshot(snapId) {
     const snapshots = getSnapshots();
     const snap = snapshots.find(s => s.id === snapId);
-    const drawer = document.getElementById('compareDrawer');
-    const grid = document.getElementById('compareGrid');
-    if (!snap || !drawer || !grid) return;
+    if (!snap) return;
 
-    const curK = getActiveKpiData();
-    const oldK = snap.kpis.combined || snap.kpis;
+    const next = prompt('Rename this version:', snap.week_label);
+    if (next === null) return;
+    const name = next.trim();
+    if (!name) {
+      showStatus('Version name cannot be empty.', 'error');
+      return;
+    }
 
-    const diffReg = curK.total_registered - oldK.total_registered;
-    const diffAct = curK.total_activated - oldK.total_activated;
-    const diffOnTrack = curK.total_on_track - oldK.total_on_track;
+    snap.week_label = name;
+    snap.updated_at = new Date().toISOString();
+    if (snap.data) snap.data.week_label = name;
+    persistSnapshots(snapshots);
 
-    grid.innerHTML = `
-      <div class="compare-stat-card">
-        <div class="compare-stat-label">Snapshot Target</div>
-        <div class="compare-stat-val">${escapeHtml(snap.week_label)}</div>
-      </div>
-      <div class="compare-stat-card">
-        <div class="compare-stat-label">Scholars Delta</div>
-        <div class="compare-stat-val">${curK.total_registered} <span class="compare-delta ${diffReg >= 0 ? 'delta-pos' : 'delta-neg'}">${diffReg >= 0 ? '+' : ''}${diffReg}</span></div>
-      </div>
-      <div class="compare-stat-card">
-        <div class="compare-stat-label">Activated Delta</div>
-        <div class="compare-stat-val">${curK.total_activated} <span class="compare-delta ${diffAct >= 0 ? 'delta-pos' : 'delta-neg'}">${diffAct >= 0 ? '+' : ''}${diffAct}</span></div>
-      </div>
-      <div class="compare-stat-card">
-        <div class="compare-stat-label">On Track Delta</div>
-        <div class="compare-stat-val">${curK.total_on_track} <span class="compare-delta ${diffOnTrack >= 0 ? 'delta-pos' : 'delta-neg'}">${diffOnTrack >= 0 ? '+' : ''}${diffOnTrack}</span></div>
-      </div>
-    `;
+    // Keep the active dataset label in sync when renaming the active version
+    if (snap.id === activeSnapshotId && DATA) {
+      DATA.week_label = name;
+      localStorage.setItem(STORAGE_CUSTOM_DATA, JSON.stringify(DATA));
+      renderTimestamp();
+    }
 
-    drawer.classList.remove('hidden');
-  };
+    renderSnapshotTable();
+    showStatus(`Renamed version to "${name}".`, 'success');
+  }
+
+  function deleteSnapshot(snapId) {
+    const snapshots = getSnapshots();
+    const idx = snapshots.findIndex(s => s.id === snapId);
+    if (idx === -1) return;
+    const snap = snapshots[idx];
+
+    if (!confirm(`Delete version "${snap.week_label}"? This cannot be undone.`)) return;
+
+    const wasActive = snap.id === activeSnapshotId;
+    snapshots.splice(idx, 1);
+    persistSnapshots(snapshots);
+
+    if (wasActive) {
+      if (snapshots.length) {
+        // Fall back to the most recent remaining version
+        const next = snapshots[0];
+        DATA = deepClone(next.data);
+        localStorage.setItem(STORAGE_CUSTOM_DATA, JSON.stringify(DATA));
+        setActiveSnapshot(next.id);
+      } else {
+        DATA = null;
+        localStorage.removeItem(STORAGE_CUSTOM_DATA);
+        setActiveSnapshot(null);
+      }
+      renderDashboard();
+    }
+
+    renderSnapshotTable();
+    showStatus(`Deleted version "${snap.week_label}".`, 'success');
+  }
 
   // =========================================================================
   // LEARNER DIRECTORY TABLE
@@ -1206,7 +1376,7 @@
               <div style="margin-bottom: 8px; color: var(--text-sub);">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               </div>
-              <div style="font-weight: 600; color: var(--text-main); font-size: 14px;">${DATA ? 'No matching scholars found' : 'No Dashboard Data Loaded'}</div>
+              <div style="font-weight: 600; color: var(--text-main); font-size: 14px;">${DATA ? 'No matching learners found' : 'No Dashboard Data Loaded'}</div>
               <div style="font-size: 12px; margin-top: 4px;">${DATA ? 'Try clearing search filters or selecting a different view' : 'Switch to Admin Data Ops to upload weekly CS and DA summary CSV files'}</div>
             </div>
           </td>
@@ -1258,7 +1428,7 @@
 
     const rc = document.getElementById('resultCount');
     if (rc) {
-      rc.textContent = `Showing ${start + 1} to ${Math.min(start + PAGE_SIZE, filteredLearners.length)} of ${filteredLearners.length} scholars`;
+      rc.textContent = `Showing ${start + 1} to ${Math.min(start + PAGE_SIZE, filteredLearners.length)} of ${filteredLearners.length} learners`;
     }
 
     requestAnimationFrame(() => {
@@ -1367,14 +1537,15 @@
 
     if (resetBtn) {
       resetBtn.addEventListener('click', () => {
-        if (confirm('Clear all dashboard data and reset local dataset storage?')) {
+        if (confirm('Clear all dashboard data and every saved version? This cannot be undone.')) {
           localStorage.removeItem(STORAGE_CUSTOM_DATA);
           localStorage.removeItem(STORAGE_SNAPSHOTS);
+          setActiveSnapshot(null);
           DATA = null;
           stagedCS = null;
           stagedDA = null;
           renderDashboard();
-          showStatus('All dashboard data cleared.', 'info');
+          showStatus('All dashboard data and saved versions cleared.', 'info');
         }
       });
     }

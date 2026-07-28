@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="ALX Enterprise x UN Women Learner Operations & Analytics Dashboard: Operational visibility and support for sponsored female university scholars in Cybersecurity and Data Analytics.">
+  <meta name="description" content="ALX Enterprise x UN Women Learner Operations & Analytics Dashboard: Operational visibility and support for sponsored female university learners in Cybersecurity and Data Analytics.">
   <title>ALX Enterprise x UN Women | Learner Operations & Analytics</title>
   
   <!-- DNS Prefetch & Preconnect for Performance -->
@@ -13,10 +13,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,900;1,400;1,600&display=swap" rel="stylesheet">
   
   <!-- Favicon (ALX Enterprise mark) -->
-  <link rel="icon" type="image/png" href="assets/alx-white.png?v=4.0">
-  <link rel="apple-touch-icon" href="assets/alx-white.png?v=4.0">
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico?v=5.0" sizes="16x16 32x32 48x48">
+  <link rel="icon" type="image/png" sizes="512x512" href="assets/alx-favicon.png?v=5.0">
+  <link rel="apple-touch-icon" href="assets/alx-favicon-180.png?v=5.0">
 
-  <link rel="stylesheet" href="styles.css?v=4.0">
+  <link rel="stylesheet" href="styles.css?v=5.0">
 </head>
 <body>
 
@@ -71,25 +72,25 @@
         </button>
       </div>
       <div class="modal-body">
-        <p class="modal-desc">Browse, restore, or compare historical weekly data snapshots saved during administrator updates.</p>
-        
+        <p class="modal-desc">Save, rename, restore, or remove point-in-time versions of the dashboard dataset.</p>
+
         <!-- Active Version Info -->
         <div class="active-version-banner">
-          <div class="version-badge-pill">Active: <span id="currentVersionTag">v1.0 · Live Dataset</span></div>
-          <div class="version-meta-text">Last Updated: <strong id="currentVersionTime">Live Sync</strong></div>
+          <div class="version-badge-pill">Active version: <span id="currentVersionTag">v1.0 · Live Dataset</span></div>
+          <div class="version-meta-text">Last updated <strong id="currentVersionTime">Not yet saved</strong></div>
         </div>
 
         <!-- Snapshots Table -->
         <div class="snapshots-table-wrapper">
-          <table class="smart-table" id="snapshotsTable">
+          <table class="smart-table snapshots-table" id="snapshotsTable">
             <thead>
               <tr>
-                <th>Week Snapshot</th>
-                <th>Source / Label</th>
-                <th>Timestamp</th>
-                <th>Scholars</th>
-                <th>Activated</th>
-                <th>Actions</th>
+                <th>Version Name</th>
+                <th>Created</th>
+                <th>Last Updated</th>
+                <th>Learners</th>
+                <th>Status</th>
+                <th class="th-actions">Actions</th>
               </tr>
             </thead>
             <tbody id="snapshotsTableBody">
@@ -97,24 +98,13 @@
             </tbody>
           </table>
         </div>
-
-        <!-- Version Comparison Drawer -->
-        <div class="version-compare-drawer hidden" id="compareDrawer">
-          <div class="compare-title">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
-            <span>Snapshot Comparison Analysis</span>
-          </div>
-          <div class="compare-grid" id="compareGrid">
-            <!-- Comparison metrics injected dynamically -->
-          </div>
-        </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-outline" id="createSnapshotBtn">
+        <button class="btn btn-brand" id="createSnapshotBtn">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
           <span>Save Current Snapshot</span>
         </button>
-        <button class="btn btn-brand" id="closeVersionModalBtn">Done</button>
+        <button class="btn btn-outline" id="closeVersionModalBtn">Done</button>
       </div>
     </div>
   </div>
@@ -142,7 +132,7 @@
           </div>
 
           <div class="status-pill">
-            <span id="lastUpdated">Live Sync</span>
+            <span id="lastUpdated">Last Updated</span>
           </div>
 
           <div class="mode-switch-container" role="radiogroup" aria-label="Dashboard Mode">
@@ -294,10 +284,10 @@
         <div class="section-heading">
           <div>
             <h1 class="headline-primary">Executive Summary</h1>
-            <p class="subheadline">Key performance indicators across sponsored female university student cohorts</p>
+            <p class="subheadline">Performance across sponsored female university learners in Cybersecurity and Data Analytics</p>
           </div>
           <div class="quick-stats-badge">
-            <span class="highlight-number" id="totalLearnersBadge">0</span> UN Scholars Enrolled
+            <span class="highlight-number" id="totalLearnersBadge">0</span> Learners Enrolled
           </div>
         </div>
 
@@ -315,7 +305,7 @@
             <div class="card-header-flex">
               <div>
                 <h2 class="card-title">Learner Journey Funnel</h2>
-                <p class="card-subtitle">From enrolled scholars through activation to on-track status</p>
+                <p class="card-subtitle">From enrolled learners through activation to on-track status</p>
               </div>
             </div>
 
@@ -338,7 +328,7 @@
                 <canvas id="healthChartOverall"></canvas>
                 <div class="chart-center-overlay">
                   <span class="overlay-value" id="chartCenterTotal">0</span>
-                  <span class="overlay-label">Scholars</span>
+                  <span class="overlay-label">Learners</span>
                 </div>
               </div>
               <div class="health-legend-list" id="healthLegendList">
@@ -538,6 +528,6 @@
   <!-- CDNs: Chart.js (critical) + Motion One (animations) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/motion@10.18.0/dist/motion.js" async></script>
-  <script src="app.js?v=4.0"></script>
+  <script src="app.js?v=5.0"></script>
 </body>
 </html>
