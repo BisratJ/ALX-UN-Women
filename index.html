@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" sizes="512x512" href="assets/alx-favicon.png?v=5.0">
   <link rel="apple-touch-icon" href="assets/alx-favicon-180.png?v=5.0">
 
-  <link rel="stylesheet" href="styles.css?v=5.0">
+  <link rel="stylesheet" href="styles.css?v=6.0">
 </head>
 <body>
 
@@ -450,7 +450,7 @@
               <span class="search-prefix-icon">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               </span>
-              <input type="text" id="searchInput" placeholder="Search learner email or track..." autocomplete="off">
+              <input type="text" id="searchInput" placeholder="Search name, email, phone, or track..." autocomplete="off">
               <button class="clear-search-btn hidden" id="clearSearchBtn" title="Clear search" aria-label="Clear search">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
@@ -485,11 +485,13 @@
             <table class="smart-table" id="learnerTable" role="table">
               <thead>
                 <tr>
-                  <th data-sort="email" class="th-sortable" role="columnheader" aria-sort="none">Learner Email <span class="sort-icon">&#8597;</span></th>
+                  <th data-sort="full_name" class="th-sortable" role="columnheader" aria-sort="none">Learner Name <span class="sort-icon">&#8597;</span></th>
+                  <th data-sort="email" class="th-sortable" role="columnheader" aria-sort="none">Email <span class="sort-icon">&#8597;</span></th>
+                  <th data-sort="phone" class="th-sortable" role="columnheader" aria-sort="none">Phone <span class="sort-icon">&#8597;</span></th>
                   <th data-sort="track" class="th-sortable" role="columnheader" aria-sort="none">Track <span class="sort-icon">&#8597;</span></th>
                   <th data-sort="detail" class="th-sortable" role="columnheader" aria-sort="none">Program Detail <span class="sort-icon">&#8597;</span></th>
                   <th data-sort="activation_status" class="th-sortable" role="columnheader" aria-sort="none">Activation <span class="sort-icon">&#8597;</span></th>
-                  <th data-sort="performance_status" class="th-sortable" role="columnheader" aria-sort="none">Performance Status <span class="sort-icon">&#8597;</span></th>
+                  <th data-sort="performance_status" class="th-sortable" role="columnheader" aria-sort="none">Performance <span class="sort-icon">&#8597;</span></th>
                 </tr>
               </thead>
               <tbody id="learnerTableBody">
@@ -528,6 +530,7 @@
   <!-- CDNs: Chart.js (critical) + Motion One (animations) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/motion@10.18.0/dist/motion.js" async></script>
-  <script src="app.js?v=5.0"></script>
+  <script src="seed-data.js?v=6.0"></script>
+  <script src="app.js?v=6.0"></script>
 </body>
 </html>

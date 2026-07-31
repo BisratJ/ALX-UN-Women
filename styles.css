@@ -1969,6 +1969,56 @@ select:focus-visible {
   cursor: not-allowed;
 }
 
+/* Toast Notifications */
+#toastHost {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4000;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-lg);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-main);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  white-space: nowrap;
+  max-width: 90vw;
+}
+
+.toast .toast-msg {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toast.toast-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.toast-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--accent-primary);
+}
+
+.toast-success .toast-dot { background: var(--status-activated); }
+.toast-error .toast-dot { background: var(--status-lagging); }
+
 /* Version History Empty State */
 .snapshot-empty-state {
   display: flex;

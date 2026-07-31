@@ -12,15 +12,16 @@
   'use strict';
 
   // Storage Keys
-  const STORAGE_CUSTOM_DATA = 'alx_unwomen_custom_data_v3';
-  const STORAGE_SNAPSHOTS = 'alx_unwomen_snapshots_v3';
-  const STORAGE_ACTIVE = 'alx_unwomen_active_snapshot_v3';
+  const STORAGE_CUSTOM_DATA = 'alx_unwomen_custom_data_v4';
+  const STORAGE_SNAPSHOTS = 'alx_unwomen_snapshots_v4';
+  const STORAGE_ACTIVE = 'alx_unwomen_active_snapshot_v4';
 
   // Id of the snapshot currently loaded as the active dataset
   let activeSnapshotId = null;
 
-  // Registered cohort sizes (fixed enrolment totals per program)
-  const REGISTERED_TOTALS = { cs: 185, da: 325, combined: 510 };
+  // Registered cohort sizes (fixed enrolment totals per program).
+  // Onboarded/activated/on-track counts are always derived from the dataset.
+  const REGISTERED_TOTALS = { cs: 181, da: 322, combined: 503 };
 
   // Global Dashboard State
   let DATA = null; // Active dataset object
@@ -33,7 +34,7 @@
   let activePerformanceFilter = '';
   let activeTrackFilter = '';
 
-  let sortColumn = 'email';
+  let sortColumn = 'full_name';
   let sortDirection = 'asc';
 
   let healthChartInstance = null;
@@ -53,6 +54,7 @@
   const ICONS = {
     target: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
     zap: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+    monitor: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`,
     check: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
     alert: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
     minus: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`,
@@ -104,17 +106,25 @@
 
   // DOM Initialization
   document.addEventListener('DOMContentLoaded', () => {
-    Motion.slideDown('.top-header');
-    setupThemeToggle();
-    setupModeSwitch();
-    setupMobileNav();
-    setupDualUpload();
-    setupProgramTabs();
-    setupAdminLoginModal();
-    setupVersionHistoryModal();
+    try {
+      Motion.slideDown('.top-header');
+      setupThemeToggle();
+      setupModeSwitch();
+      setupMobileNav();
+      setupDualUpload();
+      setupProgramTabs();
+      setupAdminLoginModal();
+      setupVersionHistoryModal();
+      setupTableControls();
 
-    // Load active data from localStorage or show initial state
-    loadActiveDataset();
+      // Load the active dataset (cached session data or the bundled seed)
+      loadActiveDataset();
+    } catch (err) {
+      // Never leave a new visitor stuck behind the loading overlay
+      console.error('Dashboard initialization failed', err);
+      hideLoading();
+      showToast('Something went wrong while loading the dashboard. Please refresh the page.', 'error');
+    }
   });
 
   // =========================================================================
@@ -125,7 +135,10 @@
     try {
       const cached = localStorage.getItem(STORAGE_CUSTOM_DATA);
       if (cached) {
-        DATA = JSON.parse(cached);
+        const parsed = JSON.parse(cached);
+        if (parsed && Array.isArray(parsed.learners) && parsed.learners.length > 0) {
+          DATA = parsed;
+        }
       }
     } catch (e) {
       console.warn('Failed to parse cached dataset from localStorage', e);
@@ -133,8 +146,16 @@
 
     activeSnapshotId = localStorage.getItem(STORAGE_ACTIVE) || null;
 
-    // Auto-create initial baseline dataset & snapshot if empty
-    ensureBaselineSnapshot();
+    // First visit, new session, hard refresh with cleared storage: fall back
+    // to the bundled seed dataset so the dashboard always renders real data.
+    if (!DATA) {
+      DATA = buildSeedDataset();
+    }
+
+    // Guarantee a baseline snapshot exists, without ever duplicating it.
+    if (DATA && getSnapshots().length === 0) {
+      saveSnapshot(DATA.week_label || 'Week 1 - Baseline', 'Bundled Weekly Data', DATA);
+    }
 
     // If we have snapshots but no known active id, default to the newest
     if (!activeSnapshotId) {
@@ -154,47 +175,25 @@
     hideLoading();
   }
 
-  function ensureBaselineSnapshot() {
-    const snapshots = getSnapshots();
-    if (snapshots.length === 0 || !DATA) {
-      const baselineData = {
-        week_label: 'Week 1 - Baseline',
-        generated_at: new Date().toISOString(),
-        kpis: {
-          combined: {
-            total_registered: 510,
-            total_activated: 193,
-            total_not_activated: 317,
-            total_on_track: 41,
-            total_off_track: 276,
-            activation_rate: '37.8',
-            on_track_rate: '8.0',
-          },
-          cs: {
-            total_registered: 185,
-            total_activated: 22,
-            total_not_activated: 163,
-            total_on_track: 9,
-            total_off_track: 66,
-            activation_rate: '11.9',
-            on_track_rate: '4.9',
-          },
-          da: {
-            total_registered: 325,
-            total_activated: 171,
-            total_not_activated: 154,
-            total_on_track: 32,
-            total_off_track: 210,
-            activation_rate: '52.6',
-            on_track_rate: '9.8',
-          }
-        },
-        learners: []
-      };
+  // Build the initial dataset from the bundled seed file (seed-data.js),
+  // which is generated directly from the weekly CS and DA summary CSVs.
+  function buildSeedDataset() {
+    const seed = window.SEED_DATA;
+    if (!seed || !Array.isArray(seed.learners) || seed.learners.length === 0) return null;
 
-      if (!DATA) DATA = baselineData;
-      saveSnapshot('Week 1 - Baseline', 'System Initial Baseline', baselineData);
-    }
+    const csLearners = seed.learners.filter(l => l.track === 'Cybersecurity');
+    const daLearners = seed.learners.filter(l => l.track === 'Data Analytics');
+
+    return {
+      week_label: seed.week_label || 'Week 1 - Baseline',
+      generated_at: seed.generated_at || new Date().toISOString(),
+      kpis: {
+        combined: computeCohortKpis(seed.learners, 'combined'),
+        cs: computeCohortKpis(csLearners, 'cs'),
+        da: computeCohortKpis(daLearners, 'da'),
+      },
+      learners: seed.learners,
+    };
   }
 
 
@@ -211,7 +210,8 @@
     renderKPIs();
     renderFunnels();
     renderHealthChart();
-    setupTable();
+    currentPage = 1;
+    filterAndRender();
     setTimeout(() => {
       Motion.fadeUp('.section-block', { stagger: 0.08, duration: 0.4 });
     }, 50);
@@ -254,16 +254,18 @@
 
     const kpiData = getActiveKpiData();
     const totalBadge = document.getElementById('totalLearnersBadge');
-    if (totalBadge) totalBadge.textContent = kpiData.total_registered || 510;
+    if (totalBadge) totalBadge.textContent = kpiData.total_registered || 0;
   }
 
   // Get KPIs based on currently selected Program View ('all', 'cs', 'da')
   function getActiveKpiData() {
     if (!DATA || !DATA.kpis) {
+      const total = REGISTERED_TOTALS[activeProgramView === 'cs' ? 'cs' : activeProgramView === 'da' ? 'da' : 'combined'];
       return {
-        total_registered: 510,
+        total_registered: total,
+        total_onboarded: 0,
         total_activated: 0,
-        total_not_activated: 510,
+        total_not_activated: total,
         total_on_track: 0,
         total_off_track: 0,
         activation_rate: 0,
@@ -283,11 +285,14 @@
   function renderKPIs() {
     const k = getActiveKpiData();
     const reg = k.total_registered || 0;
+    const onboarded = k.total_onboarded != null ? k.total_onboarded : (DATA && DATA.learners ? DATA.learners.length : 0);
 
-    const activationRate = reg > 0 ? ((k.total_activated / reg) * 100).toFixed(1) : '0.0';
-    const onTrackRate = reg > 0 ? ((k.total_on_track / reg) * 100).toFixed(1) : '0.0';
-    const notActivatedRate = reg > 0 ? ((k.total_not_activated / reg) * 100).toFixed(1) : '0.0';
-    const offTrackRate = reg > 0 ? ((k.total_off_track / reg) * 100).toFixed(1) : '0.0';
+    const pct = (num) => reg > 0 ? ((num / reg) * 100).toFixed(1) : '0.0';
+    const activationRate = pct(k.total_activated);
+    const onboardedRate = pct(onboarded);
+    const onTrackRate = pct(k.total_on_track);
+    const notActivatedRate = pct(k.total_not_activated);
+    const offTrackRate = pct(k.total_off_track);
 
     const cohortLabel = activeProgramView === 'cs' ? 'Cybersecurity'
       : activeProgramView === 'da' ? 'Data Analytics'
@@ -296,11 +301,21 @@
     const kpis = [
       {
         id: 'kpi-registered',
-        label: 'Total Learners',
+        label: 'Registered Learners',
         value: k.total_registered,
         detail: `Enrolled across ${cohortLabel}`,
         color: 'blue',
         icon: ICONS.target,
+        filterActivation: '',
+        filterPerformance: '',
+      },
+      {
+        id: 'kpi-onboarded',
+        label: 'Onboarded onto LMS',
+        value: onboarded,
+        detail: `${onboardedRate}% of registered learners`,
+        color: 'blue',
+        icon: ICONS.monitor,
         filterActivation: '',
         filterPerformance: '',
       },
@@ -405,8 +420,10 @@
     const k = getActiveKpiData();
     const maxVal = k.total_registered || 1;
 
+    const onboarded = k.total_onboarded != null ? k.total_onboarded : (DATA && DATA.learners ? DATA.learners.length : 0);
     const steps = [
       { label: 'Registered Learners', val: k.total_registered },
+      { label: 'Onboarded onto LMS', val: onboarded },
       { label: 'Activated Learners', val: k.total_activated },
       { label: 'On Track Learners', val: k.total_on_track },
     ];
@@ -768,55 +785,60 @@
     showStatus(`Loaded ${allLearners.length} learners (${csLearners.length} CS, ${daLearners.length} DA) for ${weekLabel}.`, 'success');
   }
 
-  function parseCsRow(row) {
-    const emailKey = Object.keys(row).find(k => k.trim().toLowerCase() === 'email');
-    const scoreKey = Object.keys(row).find(k => k.trim().toLowerCase().includes('score'));
-    const statusKey = Object.keys(row).find(k => k.trim().toLowerCase() === 'status');
-    const actKey = Object.keys(row).find(k => k.trim().toLowerCase().includes('activation'));
+  // Shared field extraction for both program CSVs (name, phone, statuses)
+  function extractCommonFields(row) {
+    const keys = Object.keys(row);
+    const find = (test) => keys.find(k => test(k.trim().toLowerCase()));
+
+    const emailKey = find(k => k === 'email');
+    const nameKey = find(k => k.includes('full name') || k === 'name' || k.includes('learner name'));
+    const phoneKey = find(k => k.includes('phone'));
+    const statusKey = find(k => k === 'status');
+    const actKey = find(k => k.includes('activation'));
 
     const email = String(row[emailKey] || '').trim();
-    if (!email) return null;
-
-    const rawScore = parseFloat(row[scoreKey]);
-    const score = !isNaN(rawScore) ? Math.round(rawScore * 100) / 100 : null;
+    const fullName = nameKey ? String(row[nameKey] || '').trim() : '';
+    const phone = phoneKey ? String(row[phoneKey] || '').trim() : '';
 
     const rawStatus = stripEmoji(row[statusKey]);
     const rawActivation = stripEmoji(row[actKey]);
-
     const status = rawStatus.toLowerCase().includes('on track') ? 'On Track' : 'Off Track';
-    const activation_status = rawActivation.toLowerCase().includes('activated') && !rawActivation.toLowerCase().includes('not') ? 'Activated' : 'Not Activated';
+    const activation = rawActivation.toLowerCase().includes('activated') && !rawActivation.toLowerCase().includes('not') ? 'Activated' : 'Not Activated';
+
+    return { email, fullName: fullName || null, phone: phone || null, status, activation };
+  }
+
+  function parseCsRow(row) {
+    const { email, fullName, phone, status, activation } = extractCommonFields(row);
+    if (!email) return null;
+
+    const scoreKey = Object.keys(row).find(k => k.trim().toLowerCase().includes('score'));
+    const rawScore = parseFloat(row[scoreKey]);
+    const score = !isNaN(rawScore) ? Math.round(rawScore * 100) / 100 : null;
 
     return {
       track: 'Cybersecurity',
       email: email,
+      full_name: fullName,
+      phone: phone,
       lms_overall_score: score,
       latest_class: null,
       level: null,
       detail: score != null ? `LMS Score: ${score}%` : '-',
       status: status,
-      activation_status: activation_status,
+      activation_status: activation,
       performance_status: status,
     };
   }
 
   function parseDaRow(row) {
-    const emailKey = Object.keys(row).find(k => k.trim().toLowerCase() === 'email');
-    const classKey = Object.keys(row).find(k => k.trim().toLowerCase().includes('class'));
-    const levelKey = Object.keys(row).find(k => k.trim().toLowerCase().includes('level'));
-    const statusKey = Object.keys(row).find(k => k.trim().toLowerCase() === 'status');
-    const actKey = Object.keys(row).find(k => k.trim().toLowerCase().includes('activation'));
-
-    const email = String(row[emailKey] || '').trim();
+    const { email, fullName, phone, status, activation } = extractCommonFields(row);
     if (!email) return null;
 
+    const classKey = Object.keys(row).find(k => k.trim().toLowerCase().includes('class'));
+    const levelKey = Object.keys(row).find(k => k.trim().toLowerCase().includes('level'));
     const latestClass = classKey ? String(row[classKey] || '').trim() : '';
     const level = levelKey ? String(row[levelKey] || '').trim() : '';
-
-    const rawStatus = stripEmoji(row[statusKey]);
-    const rawActivation = stripEmoji(row[actKey]);
-
-    const status = rawStatus.toLowerCase().includes('on track') ? 'On Track' : 'Off Track';
-    const activation_status = rawActivation.toLowerCase().includes('activated') && !rawActivation.toLowerCase().includes('not') ? 'Activated' : 'Not Activated';
 
     let detail = latestClass || (level ? `Level ${level}` : '-');
     if (latestClass && level) detail = `${latestClass} (L${level})`;
@@ -824,20 +846,24 @@
     return {
       track: 'Data Analytics',
       email: email,
+      full_name: fullName,
+      phone: phone,
       lms_overall_score: null,
       latest_class: latestClass,
       level: level,
       detail: detail,
       status: status,
-      activation_status: activation_status,
+      activation_status: activation,
       performance_status: status,
     };
   }
 
   function computeCohortKpis(learners, cohort) {
-    // Registered total is the fixed enrolment size for the cohort, so
-    // "Pending Activation" reflects everyone who has not yet activated.
+    // Registered total is the fixed enrolment size for the cohort;
+    // every other metric is derived from the actual dataset, so
+    // "Pending Activation" covers everyone who has not yet activated.
     const total = REGISTERED_TOTALS[cohort] || learners.length;
+    const onboarded = learners.length;
     const activated = learners.filter(l => l.activation_status === 'Activated').length;
     const notActivated = Math.max(0, total - activated);
     const onTrack = learners.filter(l => l.status === 'On Track').length;
@@ -845,6 +871,7 @@
 
     return {
       total_registered: total,
+      total_onboarded: onboarded,
       total_activated: activated,
       total_not_activated: notActivated,
       total_on_track: onTrack,
@@ -938,21 +965,32 @@
 
     const now = new Date().toISOString();
     const snapshots = getSnapshots();
-    const snap = {
-      id: `snap_${Date.now()}`,
-      week_label: weekLabel,
-      created_at: now,
-      updated_at: now,
-      timestamp: now, // retained for backward compatibility
-      source: source,
-      kpis: deepClone(dataset.kpis),
-      data: deepClone(dataset),
-    };
 
-    snapshots.unshift(snap);
-
-    // Keep max 20 snapshots
-    if (snapshots.length > 20) snapshots.pop();
+    // Prevent accidental duplicates: saving under an existing version name
+    // updates that version in place instead of creating a second copy.
+    const existing = snapshots.find(s => s.week_label === weekLabel);
+    let snap;
+    if (existing) {
+      existing.updated_at = now;
+      existing.source = source;
+      existing.kpis = deepClone(dataset.kpis);
+      existing.data = deepClone(dataset);
+      snap = existing;
+    } else {
+      snap = {
+        id: `snap_${Date.now()}`,
+        week_label: weekLabel,
+        created_at: now,
+        updated_at: now,
+        timestamp: now, // retained for backward compatibility
+        source: source,
+        kpis: deepClone(dataset.kpis),
+        data: deepClone(dataset),
+      };
+      snapshots.unshift(snap);
+      // Keep max 20 snapshots
+      if (snapshots.length > 20) snapshots.pop();
+    }
 
     persistSnapshots(snapshots);
     try {
@@ -1039,16 +1077,21 @@
 
   function createManualSnapshot() {
     if (!DATA) {
-      showStatus('There is no active dataset to save yet.', 'error');
+      showToast('There is no active dataset to save yet.', 'error');
       return;
     }
     const label = prompt('Name this version:', DATA.week_label || 'Manual Snapshot');
-    if (label && label.trim()) {
-      saveSnapshot(label.trim(), 'Manual Save', DATA);
-      renderSnapshotTable();
-      renderTimestamp();
-      showStatus(`Saved version "${label.trim()}".`, 'success');
+    if (label === null) return;
+    const name = label.trim();
+    if (!name) {
+      showToast('Version name cannot be empty.', 'error');
+      return;
     }
+    const existed = getSnapshots().some(s => s.week_label === name);
+    saveSnapshot(name, 'Manual Save', DATA);
+    renderSnapshotTable();
+    renderTimestamp();
+    showToast(existed ? `Updated existing version "${name}".` : `Saved version "${name}".`, 'success');
   }
 
   function showVersionHistoryModal() {
@@ -1151,7 +1194,7 @@
       setActiveSnapshot(snap.id);
       renderDashboard();
       renderSnapshotTable();
-      showStatus(`Restored version "${snap.week_label}".`, 'success');
+      showToast(`Restored version "${snap.week_label}".`, 'success');
     }
   }
 
@@ -1164,7 +1207,12 @@
     if (next === null) return;
     const name = next.trim();
     if (!name) {
-      showStatus('Version name cannot be empty.', 'error');
+      showToast('Version name cannot be empty.', 'error');
+      return;
+    }
+    if (name === snap.week_label) return;
+    if (snapshots.some(s => s.id !== snap.id && s.week_label === name)) {
+      showToast(`A version named "${name}" already exists. Choose a different name.`, 'error');
       return;
     }
 
@@ -1181,7 +1229,7 @@
     }
 
     renderSnapshotTable();
-    showStatus(`Renamed version to "${name}".`, 'success');
+    showToast(`Renamed version to "${name}".`, 'success');
   }
 
   function deleteSnapshot(snapId) {
@@ -1204,7 +1252,8 @@
         localStorage.setItem(STORAGE_CUSTOM_DATA, JSON.stringify(DATA));
         setActiveSnapshot(next.id);
       } else {
-        DATA = null;
+        // No versions left: fall back to the bundled weekly dataset
+        DATA = buildSeedDataset();
         localStorage.removeItem(STORAGE_CUSTOM_DATA);
         setActiveSnapshot(null);
       }
@@ -1212,14 +1261,16 @@
     }
 
     renderSnapshotTable();
-    showStatus(`Deleted version "${snap.week_label}".`, 'success');
+    showToast(`Deleted version "${snap.week_label}".`, 'success');
   }
 
   // =========================================================================
   // LEARNER DIRECTORY TABLE
   // =========================================================================
 
-  function setupTable() {
+  // One-time wiring of the directory controls. Called once at startup so
+  // re-renders never stack duplicate event listeners.
+  function setupTableControls() {
     const searchInput = document.getElementById('searchInput');
     const clearSearchBtn = document.getElementById('clearSearchBtn');
     const filterTrack = document.getElementById('filterTrack');
@@ -1302,8 +1353,6 @@
     });
 
     if (exportBtn) exportBtn.addEventListener('click', exportCSV);
-
-    filterAndRender();
   }
 
   function updateChipUI() {
@@ -1339,7 +1388,7 @@
       if (activePerformanceFilter && l.status !== activePerformanceFilter) return false;
 
       if (search) {
-        const text = `${l.email} ${l.track} ${l.detail}`.toLowerCase();
+        const text = `${l.full_name || ''} ${l.email} ${l.phone || ''} ${l.track} ${l.detail}`.toLowerCase();
         if (!text.includes(search)) return false;
       }
       return true;
@@ -1371,7 +1420,7 @@
     if (filteredLearners.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="5">
+          <td colspan="7">
             <div class="empty-state" style="padding: 40px; text-align: center; color: var(--text-muted);">
               <div style="margin-bottom: 8px; color: var(--text-sub);">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -1400,9 +1449,11 @@
 
       return `
         <tr>
+          <td style="font-weight: 600; color: var(--text-main);">${escapeHtml(l.full_name || '-')}</td>
           <td>
             <a href="mailto:${escapeHtml(l.email)}" style="color: var(--text-accent); text-decoration: none; font-weight: 500;">${escapeHtml(l.email)}</a>
           </td>
+          <td style="font-size: 12px; color: var(--text-sub); font-variant-numeric: tabular-nums;">${l.phone ? `<a href="tel:${escapeHtml(l.phone)}" style="color: inherit; text-decoration: none;">${escapeHtml(l.phone)}</a>` : '-'}</td>
           <td><span class="track-tag ${trackClass}">${l.track === 'Cybersecurity' ? 'CS' : 'DA'}</span></td>
           <td style="font-size: 12px; color: var(--text-sub);">${escapeHtml(l.detail)}</td>
           <td>
@@ -1479,9 +1530,11 @@
       return;
     }
 
-    const headers = ['Email', 'Track', 'Program Detail', 'Activation Status', 'Performance Status'];
+    const headers = ['Full Name', 'Email', 'Phone Number', 'Track', 'Program Detail', 'Activation Status', 'Performance Status'];
     const rows = filteredLearners.map(l => [
+      l.full_name || '',
       l.email,
+      l.phone || '',
       l.track,
       l.detail,
       l.activation_status,
@@ -1537,15 +1590,16 @@
 
     if (resetBtn) {
       resetBtn.addEventListener('click', () => {
-        if (confirm('Clear all dashboard data and every saved version? This cannot be undone.')) {
+        if (confirm('Clear all saved versions and uploaded data? The dashboard resets to the bundled weekly dataset. This cannot be undone.')) {
           localStorage.removeItem(STORAGE_CUSTOM_DATA);
           localStorage.removeItem(STORAGE_SNAPSHOTS);
           setActiveSnapshot(null);
-          DATA = null;
+          DATA = buildSeedDataset();
           stagedCS = null;
           stagedDA = null;
+          if (DATA) saveSnapshot(DATA.week_label || 'Week 1 - Baseline', 'Bundled Weekly Data', DATA);
           renderDashboard();
-          showStatus('All dashboard data and saved versions cleared.', 'info');
+          showToast('Dashboard reset to the bundled weekly dataset.', 'info');
         }
       });
     }
@@ -1717,6 +1771,34 @@
       el.className = `upload-feedback ${type}`;
       el.textContent = msg;
     }
+    // Mirror upload feedback as a toast so it is visible outside the admin panel
+    if (type === 'success' || type === 'error') showToast(msg, type);
+  }
+
+  // Lightweight toast notifications for action feedback (success / error / info)
+  let toastTimer = null;
+  function showToast(msg, type = 'info') {
+    let host = document.getElementById('toastHost');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'toastHost';
+      host.setAttribute('role', 'status');
+      host.setAttribute('aria-live', 'polite');
+      document.body.appendChild(host);
+    }
+    host.innerHTML = `
+      <div class="toast toast-${type}">
+        <span class="toast-dot"></span>
+        <span class="toast-msg"></span>
+      </div>`;
+    host.querySelector('.toast-msg').textContent = msg;
+    const toast = host.querySelector('.toast');
+    requestAnimationFrame(() => toast.classList.add('toast-visible'));
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toast.classList.remove('toast-visible');
+      setTimeout(() => { if (host.contains(toast)) host.innerHTML = ''; }, 250);
+    }, 3200);
   }
 
   const _escapeMap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
