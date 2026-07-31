@@ -1011,68 +1011,160 @@
 
     if (!modal) return;
 
-    function hide() { modal.classList.add('hidden'); }
+    function hide() {
+      closeRowMenuPortal();
+      modal.classList.add('hidden');
+    }
 
     if (closeBtn) closeBtn.addEventListener('click', hide);
     if (doneBtn) doneBtn.addEventListener('click', hide);
     if (createBtn) createBtn.addEventListener('click', createManualSnapshot);
 
-    // Contextual (kebab) action menus: open/close via delegation
+    // Contextual (kebab) action menus via Body Portal
     if (tbody) {
       tbody.addEventListener('click', (e) => {
         const kebab = e.target.closest('.row-menu-btn');
         if (kebab) {
           e.stopPropagation();
-          const menu = kebab.closest('.row-menu');
-          const wasOpen = menu.classList.contains('open');
-          closeAllRowMenus();
-          if (!wasOpen) openRowMenu(menu, kebab);
-          return;
-        }
-        const action = e.target.closest('[data-menu-action]');
-        if (action) {
-          const { menuAction, snapId } = action.dataset;
-          closeAllRowMenus();
-          if (menuAction === 'rename') renameSnapshot(snapId);
-          else if (menuAction === 'restore') restoreSnapshot(snapId);
-          else if (menuAction === 'delete') deleteSnapshot(snapId);
+          const snapId = kebab.dataset.snapId;
+          openRowMenuPortal(kebab, snapId);
         }
       });
     }
-
-    document.addEventListener('click', closeAllRowMenus);
 
     modal.addEventListener('click', (e) => {
       if (e.target === modal) hide();
     });
   }
 
-  // Position the dropdown with fixed coordinates so it is never clipped by the
-  // modal's overflow, and flip it upward when close to the viewport bottom.
-  function openRowMenu(menu, btn) {
-    const dd = menu.querySelector('.row-menu-dropdown');
-    if (!dd) return;
-    menu.classList.add('open');
-    const r = btn.getBoundingClientRect();
-    dd.style.position = 'fixed';
-    dd.style.right = 'auto';
-    const width = dd.offsetWidth || 168;
-    const height = dd.offsetHeight || 132;
-    const vh = window.innerHeight || document.documentElement.clientHeight || 0;
-    let left = Math.max(8, r.right - width);
-    let top = r.bottom + 4;
-    // Flip upward only when we know the viewport height and there isn't room below
-    if (vh && top + height > vh - 8) top = Math.max(8, r.top - height - 4);
-    dd.style.left = `${left}px`;
-    dd.style.top = `${top}px`;
+  // Floating Portal Dropdown Menu State
+  let currentPortalMenu = null;
+
+  function closeRowMenuPortal() {
+    if (!currentPortalMenu) return;
+    const { el, cleanup } = currentPortalMenu;
+    if (cleanup) cleanup();
+    if (el && el.parentNode) {
+      el.classList.remove('open');
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }
+    currentPortalMenu = null;
+    document.querySelectorAll('.row-menu-btn.active').forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-expanded', 'false');
+    });
   }
 
-  function closeAllRowMenus() {
-    document.querySelectorAll('.row-menu.open').forEach(m => {
-      m.classList.remove('open');
-      const dd = m.querySelector('.row-menu-dropdown');
-      if (dd) { dd.style.position = ''; dd.style.left = ''; dd.style.top = ''; dd.style.right = ''; }
+  function openRowMenuPortal(btn, snapId) {
+    if (currentPortalMenu && currentPortalMenu.snapId === snapId) {
+      closeRowMenuPortal();
+      return;
+    }
+    closeRowMenuPortal();
+
+    const snapshots = getSnapshots();
+    const snap = snapshots.find(s => s.id === snapId);
+    if (!snap) return;
+
+    const isActive = snap.id === activeSnapshotId;
+
+    const portalEl = document.createElement('div');
+    portalEl.className = 'row-menu-dropdown-portal';
+    portalEl.setAttribute('role', 'menu');
+
+    portalEl.innerHTML = `
+      <button class="row-menu-item" data-menu-action="rename" data-snap-id="${snap.id}" role="menuitem">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
+        Rename
+      </button>
+      <button class="row-menu-item" data-menu-action="restore" data-snap-id="${snap.id}" role="menuitem" ${isActive ? 'disabled' : ''}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+        Restore
+      </button>
+      <button class="row-menu-item row-menu-item-danger" data-menu-action="delete" data-snap-id="${snap.id}" role="menuitem">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        Delete
+      </button>
+    `;
+
+    document.body.appendChild(portalEl);
+    btn.classList.add('active');
+    btn.setAttribute('aria-expanded', 'true');
+
+    positionPortalMenu(portalEl, btn);
+
+    requestAnimationFrame(() => {
+      portalEl.classList.add('open');
     });
+
+    const handleItemClick = (e) => {
+      const actionBtn = e.target.closest('[data-menu-action]');
+      if (!actionBtn) return;
+      const { menuAction, snapId } = actionBtn.dataset;
+      closeRowMenuPortal();
+      if (menuAction === 'rename') renameSnapshot(snapId);
+      else if (menuAction === 'restore') restoreSnapshot(snapId);
+      else if (menuAction === 'delete') deleteSnapshot(snapId);
+    };
+
+    const handlePointerDown = (e) => {
+      if (!portalEl.contains(e.target) && !btn.contains(e.target)) {
+        closeRowMenuPortal();
+      }
+    };
+
+    const handleScroll = () => {
+      closeRowMenuPortal();
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') closeRowMenuPortal();
+    };
+
+    portalEl.addEventListener('click', handleItemClick);
+    setTimeout(() => {
+      document.addEventListener('pointerdown', handlePointerDown);
+    }, 10);
+    document.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', closeRowMenuPortal);
+    document.addEventListener('keydown', handleKeyDown);
+
+    const cleanup = () => {
+      portalEl.removeEventListener('click', handleItemClick);
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', closeRowMenuPortal);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+
+    currentPortalMenu = { snapId, el: portalEl, cleanup };
+  }
+
+  function positionPortalMenu(portalEl, btn) {
+    const btnRect = btn.getBoundingClientRect();
+    const width = 168;
+    const height = 135;
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    const vw = window.innerWidth || document.documentElement.clientWidth;
+
+    const spaceBelow = vh - btnRect.bottom;
+    const spaceAbove = btnRect.top;
+
+    let top;
+    if (spaceBelow < height + 12 && spaceAbove > spaceBelow) {
+      top = Math.max(8, btnRect.top - height - 6);
+      portalEl.classList.add('flipped-up');
+    } else {
+      top = Math.min(vh - height - 8, btnRect.bottom + 6);
+      portalEl.classList.remove('flipped-up');
+    }
+
+    let left = btnRect.right - width;
+    if (left < 8) left = 8;
+    if (left + width > vw - 8) left = vw - width - 8;
+
+    portalEl.style.top = `${Math.round(top)}px`;
+    portalEl.style.left = `${Math.round(left)}px`;
   }
 
   function createManualSnapshot() {
@@ -1110,6 +1202,7 @@
   }
 
   function renderSnapshotTable() {
+    closeRowMenuPortal();
     const tbody = document.getElementById('snapshotsTableBody');
     if (!tbody) return;
 
@@ -1159,23 +1252,9 @@
           </td>
           <td class="td-actions">
             <div class="row-menu">
-              <button class="row-menu-btn" aria-label="Version actions" aria-haspopup="true">
+              <button class="row-menu-btn" data-snap-id="${snap.id}" aria-label="Version actions" aria-haspopup="true" aria-expanded="false">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
               </button>
-              <div class="row-menu-dropdown" role="menu">
-                <button class="row-menu-item" data-menu-action="rename" data-snap-id="${snap.id}" role="menuitem">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
-                  Rename
-                </button>
-                <button class="row-menu-item" data-menu-action="restore" data-snap-id="${snap.id}" role="menuitem" ${isActive ? 'disabled' : ''}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
-                  Restore
-                </button>
-                <button class="row-menu-item row-menu-item-danger" data-menu-action="delete" data-snap-id="${snap.id}" role="menuitem">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                  Delete
-                </button>
-              </div>
             </div>
           </td>
         </tr>
